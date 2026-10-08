@@ -1,4 +1,4 @@
-export default function Home() {
+export default function Cabecalho() {
   return (
       <div className="flex flex-col py-7">
         <p className="text-cyan-200 text-xl">Vitrine</p>

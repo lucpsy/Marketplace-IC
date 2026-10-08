@@ -1,4 +1,4 @@
-export default function Home() {
+export default function Banner() {
     return (
         <main>
         </main>
