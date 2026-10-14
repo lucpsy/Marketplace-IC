@@ -1,25 +1,18 @@
-"use client";
-import Nav from "@/components/Nav";
-import "./global.css";
-import { useState } from "react";
-import Carrinho from "@/components/Carrinho";
+import type { Metadata } from "next"
+import "./global.css"
+import { AppStore } from "@/lib/store"
+import AppShell from "@/components/AppShell"
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [carrinhoAberto, setCarrinhoAberto] = useState(false);
+export const metadata: Metadata = { title: "DIACOM Loja" }
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <head>
-        <title>Primeira página em next</title>
-      </head>
-      <body className="min-h-screen bg-[#040D0D] w-full px-50 mx-auto">
-        <Nav setCarrinhoAberto={setCarrinhoAberto} />
-        <Carrinho setCarrinhoAberto={setCarrinhoAberto} carrinhoAberto={carrinhoAberto} />
-        {children}
+      <body>
+        <AppStore>
+          <AppShell>{children}</AppShell>
+        </AppStore>
       </body>
     </html>
-  );
+  )
 }
