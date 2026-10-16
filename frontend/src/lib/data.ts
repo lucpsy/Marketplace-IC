@@ -1,10 +1,10 @@
 /* ---------------------------------------------------------------- Suppliers */
 
 export type Supplier = {
-  id: string
-  name: string
-  pickupLocation: string
-}
+  id: string;
+  name: string;
+  pickupLocation: string;
+};
 
 export const SUPPLIERS: Supplier[] = [
   {
@@ -22,38 +22,38 @@ export const SUPPLIERS: Supplier[] = [
     name: "Brindes UFAL",
     pickupLocation: "Centro de Convivência — Térreo",
   },
-]
+];
 
 export function supplierName(id: string) {
-  return SUPPLIERS.find((s) => s.id === id)?.name ?? id
+  return SUPPLIERS.find((s) => s.id === id)?.name ?? id;
 }
 
 export function supplierOf(id: string) {
-  return SUPPLIERS.find((s) => s.id === id)
+  return SUPPLIERS.find((s) => s.id === id);
 }
 
 /* ----------------------------------------------------------------- Products */
 
-export const MAX_PRODUCT_IMAGES = 10
+export const MAX_PRODUCT_IMAGES = 10;
 
 export type Product = {
-  id: string
-  name: string
-  category: string
-  supplierId: string
-  price: number
-  image: string // capa (primeira imagem)
-  images?: string[] // galeria (até MAX_PRODUCT_IMAGES)
-  badge?: string
-  stock: number
-  blurb: string
-}
+  id: string;
+  name: string;
+  category: string[];
+  supplierId: string;
+  price: number;
+  image: string; // capa (primeira imagem)
+  images?: string[]; // galeria (até MAX_PRODUCT_IMAGES)
+  badge?: string;
+  stock: number;
+  blurb: string;
+};
 
 // Lista de imagens do produto (capa + galeria), sem duplicatas e limitada.
 export function productImages(p: Product): string[] {
-  const all = [p.image, ...(p.images ?? [])].filter(Boolean)
-  const unique = Array.from(new Set(all))
-  return unique.slice(0, MAX_PRODUCT_IMAGES)
+  const all = [p.image, ...(p.images ?? [])].filter(Boolean);
+  const unique = Array.from(new Set(all));
+  return unique.slice(0, MAX_PRODUCT_IMAGES);
 }
 
 // Product photography — apparel & merch, dark tonal.
@@ -61,7 +61,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "camisa-diacom",
     name: "Camisa DIACOM 2026",
-    category: "Vestuário",
+    category: ["Vestuário"],
     supplierId: "confeccoes-ic",
     price: 55,
     stock: 42,
@@ -79,7 +79,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "moletom-ic",
     name: "Moletom IC+ Canguru",
-    category: "Vestuário",
+    category: ["Vestuário"],
     supplierId: "confeccoes-ic",
     price: 129,
     stock: 18,
@@ -96,7 +96,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "caneca-compila",
     name: 'Caneca "Compila na Primeira"',
-    category: "Acessórios",
+    category: ["Acessórios"],
     supplierId: "brindes-ufal",
     price: 39,
     stock: 60,
@@ -108,7 +108,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "ecobag-diacom",
     name: "Ecobag DIACOM",
-    category: "Acessórios",
+    category: ["Acessórios"],
     supplierId: "brindes-ufal",
     price: 32,
     stock: 55,
@@ -120,7 +120,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "adesivos-pack",
     name: "Pack de Adesivos (12un)",
-    category: "Papelaria",
+    category: ["Papelaria"],
     supplierId: "grafica-campus",
     price: 18,
     stock: 120,
@@ -133,7 +133,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "bone-icup",
     name: "Boné ICup Champions",
-    category: "Vestuário",
+    category: ["Vestuário"],
     supplierId: "confeccoes-ic",
     price: 49,
     stock: 27,
@@ -144,7 +144,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "caderno-dev",
     name: "Caderno Dev Grid",
-    category: "Papelaria",
+    category: ["Papelaria"],
     supplierId: "grafica-campus",
     price: 27,
     stock: 74,
@@ -156,7 +156,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "garrafa-termica",
     name: "Garrafa Térmica IC 500ml",
-    category: "Acessórios",
+    category: ["Acessórios"],
     supplierId: "brindes-ufal",
     price: 68,
     stock: 33,
@@ -165,39 +165,40 @@ export const PRODUCTS: Product[] = [
     blurb:
       "Inox parede dupla, mantém gelado por 12h. Gravação a laser do logo.",
   },
-]
+];
 
 /* --------------------------------------------------------------- Promotions */
 
 export type Promotion = {
-  id: string
-  title: string
-  description: string
-  discountPct: number
-  productIds: string[]
-  accent: string // tailwind-ish hex for banner tint
-  active: boolean
-  endsAt?: string
-}
+  id: string;
+  title: string;
+  description: string;
+  discountPct: number;
+  productIds: string[];
+  accent: string; // tailwind-ish hex for banner tint
+  active: boolean;
+  endsAt?: string;
+};
 
 export const PROMOTIONS: Promotion[] = [
   {
     id: "promo-semana-comp",
     title: "Semana da Computação",
-    description: "Vista o IC com estilo: vestuário oficial com desconto especial.",
+    description:
+      "Vista o IC com estilo: vestuário oficial com desconto especial.",
     discountPct: 25,
     productIds: ["camisa-diacom", "moletom-ic", "bone-icup"],
     accent: "#22e0ee",
     active: true,
     endsAt: "2026-09-20T23:59:59",
   },
-]
+];
 
 export type EffectivePrice = {
-  current: number
-  original: number
-  promo?: Promotion
-}
+  current: number;
+  original: number;
+  promo?: Promotion;
+};
 
 export function effectivePrice(
   product: Product,
@@ -205,21 +206,21 @@ export function effectivePrice(
 ): EffectivePrice {
   const promo = promotions.find(
     (p) => p.active && p.productIds.includes(product.id),
-  )
-  if (!promo) return { current: product.price, original: product.price }
-  const current = +(product.price * (1 - promo.discountPct / 100)).toFixed(2)
-  return { current, original: product.price, promo }
+  );
+  if (!promo) return { current: product.price, original: product.price };
+  const current = +(product.price * (1 - promo.discountPct / 100)).toFixed(2);
+  return { current, original: product.price, promo };
 }
 
 /* ------------------------------------------------------------------ Coupons */
 
 export type Coupon = {
-  code: string
-  kind: "percent" | "fixed" | "shipping"
-  value: number
-  label: string
-  minSubtotal?: number
-}
+  code: string;
+  kind: "percent" | "fixed" | "shipping";
+  value: number;
+  label: string;
+  minSubtotal?: number;
+};
 
 export const COUPONS: Coupon[] = [
   {
@@ -248,20 +249,20 @@ export const COUPONS: Coupon[] = [
     label: "R$ 20 off em compras acima de R$ 150",
     minSubtotal: 150,
   },
-]
+];
 
 /* ------------------------------------------------------------- Transactions */
 
 export type Txn = {
-  id: string
-  date: string
-  order: string
-  description: string
-  category: "Vendas" | "Taxa" | "Repasse" | "Custo"
-  method: "Pix" | "Cartão" | "Dinheiro"
-  amount: number // positive = entrada, negative = saída
-  status: "Concluído" | "Processando" | "Estornado"
-}
+  id: string;
+  date: string;
+  order: string;
+  description: string;
+  category: "Vendas" | "Taxa" | "Repasse" | "Custo";
+  method: "Pix" | "Cartão" | "Dinheiro";
+  amount: number; // positive = entrada, negative = saída
+  status: "Concluído" | "Processando" | "Estornado";
+};
 
 export const TRANSACTIONS: Txn[] = [
   {
@@ -384,7 +385,7 @@ export const TRANSACTIONS: Txn[] = [
     amount: 108,
     status: "Concluído",
   },
-]
+];
 
 /* ------------------------------------------------------------------ Pedidos */
 
@@ -392,32 +393,32 @@ export type OrderStatus =
   | "Confirmado"
   | "Em separação"
   | "Pronto para retirada"
-  | "Entregue"
+  | "Entregue";
 
 export const ORDER_STAGES: OrderStatus[] = [
   "Confirmado",
   "Em separação",
   "Pronto para retirada",
   "Entregue",
-]
+];
 
-export type OrderItem = { productId?: string; name: string; qty: number }
+export type OrderItem = { productId?: string; name: string; qty: number };
 
 export type Fulfillment = {
-  supplierId: string
-  items: OrderItem[]
-  status: OrderStatus
-}
+  supplierId: string;
+  items: OrderItem[];
+  status: OrderStatus;
+};
 
 export type Order = {
-  id: string // ex.: #DC-1043
-  date: string // ISO
-  buyer: string
-  total: number
-  method: "Pix" | "Cartão" | "Dinheiro"
-  pin: string // PIN único de retirada por pedido
-  fulfillments: Fulfillment[]
-}
+  id: string; // ex.: #DC-1043
+  date: string; // ISO
+  buyer: string;
+  total: number;
+  method: "Pix" | "Cartão" | "Dinheiro";
+  pin: string; // PIN único de retirada por pedido
+  fulfillments: Fulfillment[];
+};
 
 export const INITIAL_ORDERS: Order[] = [
   {
@@ -430,7 +431,9 @@ export const INITIAL_ORDERS: Order[] = [
     fulfillments: [
       {
         supplierId: "confeccoes-ic",
-        items: [{ productId: "moletom-ic", name: "Moletom IC+ Canguru", qty: 2 }],
+        items: [
+          { productId: "moletom-ic", name: "Moletom IC+ Canguru", qty: 2 },
+        ],
         status: "Pronto para retirada",
       },
     ],
@@ -445,7 +448,9 @@ export const INITIAL_ORDERS: Order[] = [
     fulfillments: [
       {
         supplierId: "confeccoes-ic",
-        items: [{ productId: "camisa-diacom", name: "Camisa DIACOM 2026", qty: 3 }],
+        items: [
+          { productId: "camisa-diacom", name: "Camisa DIACOM 2026", qty: 3 },
+        ],
         status: "Em separação",
       },
       {
@@ -466,44 +471,52 @@ export const INITIAL_ORDERS: Order[] = [
       {
         supplierId: "brindes-ufal",
         items: [
-          { productId: "garrafa-termica", name: "Garrafa Térmica IC 500ml", qty: 1 },
+          {
+            productId: "garrafa-termica",
+            name: "Garrafa Térmica IC 500ml",
+            qty: 1,
+          },
         ],
         status: "Entregue",
       },
     ],
   },
-]
+];
 
 // Prazo da campanha de ofertas atual da loja (venda por encomenda).
-export const OFFER_DEADLINE = "2026-09-20T23:59:59"
+export const OFFER_DEADLINE = "2026-09-20T23:59:59";
 
 // Taxa artificial cobrada pelo meio de pagamento.
 export const PAYMENT_FEE: Record<"Pix" | "Cartão", number> = {
   Pix: 0.01,
   Cartão: 0.04,
-}
+};
 
 /* ------------------------------------------------------------------ Helpers */
 
 export function brl(v: number) {
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 export function genPin() {
-  return String(Math.floor(1000 + Math.random() * 9000))
+  return String(Math.floor(1000 + Math.random() * 9000));
 }
 
-export function downloadCSV(filename: string, headers: string[], rows: (string | number)[][]) {
+export function downloadCSV(
+  filename: string,
+  headers: string[],
+  rows: (string | number)[][],
+) {
   const escape = (v: string | number) => {
-    const s = String(v)
-    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
-  const csv = [headers, ...rows].map((r) => r.map(escape).join(";")).join("\n")
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+    const s = String(v);
+    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [headers, ...rows].map((r) => r.map(escape).join(";")).join("\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
