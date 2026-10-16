@@ -146,7 +146,12 @@ export function Loja() {
                     <span className="text-sm">{product.name}</span>
 
                     <span className="ml-auto text-xs text-muted">
-                      {(product.category ?? []).join(", ") || "Sem categoria"}
+                      {Array.isArray(product.category)
+                        ? product.category.join(", ")
+                        : typeof product.category === "string" &&
+                            product.category
+                          ? product.category
+                          : "Sem categoria"}
                     </span>
                   </label>
                 ))}
