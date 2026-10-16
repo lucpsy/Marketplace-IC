@@ -1,19 +1,25 @@
-"use client"
-import { useState } from "react"
-import { MAX_PRODUCT_IMAGES, SUPPLIERS, brl, productImages, type Product } from "@/lib/data"
-import { Field } from "./Shared"
+"use client";
+import { useState } from "react";
+import {
+  MAX_PRODUCT_IMAGES,
+  SUPPLIERS,
+  brl,
+  productImages,
+  type Product,
+} from "@/lib/data";
+import { Field } from "./Shared";
 
 const BLANK: Product = {
   id: "",
   name: "",
-  category: "Vestuário",
+  category: ["Vestuário"],
   supplierId: SUPPLIERS[0].id,
   price: 0,
   stock: 0,
   image: "",
   images: [],
   blurb: "",
-}
+};
 
 function slug(s: string) {
   return s
@@ -21,7 +27,7 @@ function slug(s: string) {
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
+    .replace(/(^-|-$)/g, "");
 }
 
 // Card editável de um produto existente (modo admin).
@@ -30,12 +36,12 @@ export function AdminProductCard({
   onSave,
   onRemove,
 }: {
-  product: Product
-  onSave: (p: Product) => void
-  onRemove: (id: string) => void
+  product: Product;
+  onSave: (p: Product) => void;
+  onRemove: (id: string) => void;
 }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(product)
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(product);
 
   if (editing) {
     return (
@@ -44,26 +50,32 @@ export function AdminProductCard({
           value={draft}
           onChange={setDraft}
           onSubmit={() => {
-            onSave(draft)
-            setEditing(false)
+            onSave(draft);
+            setEditing(false);
           }}
           onCancel={() => {
-            setDraft(product)
-            setEditing(false)
+            setDraft(product);
+            setEditing(false);
           }}
           submitLabel="Salvar"
         />
       </div>
-    )
+    );
   }
 
   return (
     <article className="flex flex-col overflow-hidden rounded-2xl border border-line bg-panel">
       <div className="relative aspect-video overflow-hidden bg-panel-2">
         {product.image ? (
-          <img src={product.image} alt={product.name} className="size-full object-cover" />
+          <img
+            src={product.image}
+            alt={product.name}
+            className="size-full object-cover"
+          />
         ) : (
-          <div className="grid size-full place-items-center text-muted">sem imagem</div>
+          <div className="grid size-full place-items-center text-muted">
+            sem imagem
+          </div>
         )}
         {productImages(product).length > 1 && (
           <span className="absolute bottom-2 right-2 rounded-full bg-ink/80 px-2 py-0.5 font-mono text-[10px] text-fg backdrop-blur">
@@ -73,8 +85,12 @@ export function AdminProductCard({
       </div>
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-display text-base font-bold leading-tight">{product.name}</h3>
-          <span className="shrink-0 font-mono text-sm text-cyan">{brl(product.price)}</span>
+          <h3 className="font-display text-base font-bold leading-tight">
+            {product.name}
+          </h3>
+          <span className="shrink-0 font-mono text-sm text-cyan">
+            {brl(product.price)}
+          </span>
         </div>
         <p className="mt-1 label text-muted">
           {product.category} · {product.stock} un
@@ -82,8 +98,8 @@ export function AdminProductCard({
         <div className="mt-4 flex gap-2">
           <button
             onClick={() => {
-              setDraft(product)
-              setEditing(true)
+              setDraft(product);
+              setEditing(true);
             }}
             className="flex-1 rounded-lg border border-line py-2 text-sm text-fg transition-colors hover:border-cyan hover:text-cyan"
           >
@@ -98,20 +114,20 @@ export function AdminProductCard({
         </div>
       </div>
     </article>
-  )
+  );
 }
 
 // Card para adicionar um novo produto (modo admin).
 export function AddProductCard({ onAdd }: { onAdd: (p: Product) => void }) {
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState<Product>(BLANK)
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<Product>(BLANK);
 
   if (!open) {
     return (
       <button
         onClick={() => {
-          setDraft(BLANK)
-          setOpen(true)
+          setDraft(BLANK);
+          setOpen(true);
         }}
         className="grid min-h-[280px] place-items-center rounded-2xl border border-dashed border-line text-muted transition-colors hover:border-cyan hover:text-cyan"
       >
@@ -120,7 +136,7 @@ export function AddProductCard({ onAdd }: { onAdd: (p: Product) => void }) {
           <span className="mt-1 block text-sm">Adicionar produto</span>
         </span>
       </button>
-    )
+    );
   }
 
   return (
@@ -129,16 +145,16 @@ export function AddProductCard({ onAdd }: { onAdd: (p: Product) => void }) {
         value={draft}
         onChange={setDraft}
         onSubmit={() => {
-          const id = draft.id || slug(draft.name) || `prod-${Date.now()}`
-          onAdd({ ...draft, id })
-          setOpen(false)
+          const id = draft.id || slug(draft.name) || `prod-${Date.now()}`;
+          onAdd({ ...draft, id });
+          setOpen(false);
         }}
         onCancel={() => setOpen(false)}
         submitLabel="Adicionar"
         isNew
       />
     </div>
-  )
+  );
 }
 
 function ProductForm({
@@ -149,19 +165,25 @@ function ProductForm({
   submitLabel,
   isNew,
 }: {
-  value: Product
-  onChange: (p: Product) => void
-  onSubmit: () => void
-  onCancel: () => void
-  submitLabel: string
-  isNew?: boolean
+  value: Product;
+  onChange: (p: Product) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  submitLabel: string;
+  isNew?: boolean;
 }) {
-  const set = (patch: Partial<Product>) => onChange({ ...value, ...patch })
-  const valid = value.name.trim() && value.price > 0
+  const set = (patch: Partial<Product>) => onChange({ ...value, ...patch });
+  const valid = value.name.trim() && value.price > 0;
   return (
     <div className="space-y-2.5">
-      <p className="label text-cyan">{isNew ? "Novo produto" : "Editando produto"}</p>
-      <Field label="Nome" value={value.name} onChange={(v) => set({ name: v })} />
+      <p className="label text-cyan">
+        {isNew ? "Novo produto" : "Editando produto"}
+      </p>
+      <Field
+        label="Nome"
+        value={value.name}
+        onChange={(v) => set({ name: v })}
+      />
       <div className="grid grid-cols-2 gap-2.5">
         <Field
           label="Preço (R$)"
@@ -178,12 +200,51 @@ function ProductForm({
       </div>
       <div className="grid grid-cols-2 gap-2.5">
         <label className="block">
-          <span className="label text-muted">Categoria</span>
-          <input
-            value={value.category}
-            onChange={(e) => set({ category: e.target.value })}
-            className="mt-1 w-full rounded-lg border border-line bg-ink px-3 py-2 font-mono text-sm outline-none focus:border-cyan"
-          />
+          <span className="label text-muted">Categorias</span>
+
+          <div className="mt-1 space-y-2">
+            {(value.category ?? []).map((category, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  value={category}
+                  onChange={(e) => {
+                    const categories = [...(value.category ?? [])];
+                    categories[index] = e.target.value;
+                    set({ category: categories });
+                  }}
+                  placeholder={`Categoria ${index + 1}`}
+                  className="w-full min-w-0 rounded-lg border border-line bg-ink px-3 py-2 font-mono text-sm outline-none focus:border-cyan"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    set({
+                      category: (value.category ?? []).filter(
+                        (_, i) => i !== index,
+                      ),
+                    });
+                  }}
+                  className="rounded-lg border border-line px-3 text-sm text-muted transition-colors hover:border-red-400 hover:text-red-400"
+                  aria-label={`Remover categoria ${index + 1}`}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => {
+                set({
+                  category: [...(value.category ?? []), ""],
+                });
+              }}
+              className="w-full rounded-lg border border-dashed border-line px-3 py-2 text-sm text-cyan transition-colors hover:border-cyan"
+            >
+              + Adicionar categoria
+            </button>
+          </div>
         </label>
         <label className="block">
           <span className="label text-muted">Fornecedor</span>
@@ -231,7 +292,7 @@ function ProductForm({
         </button>
       </div>
     </div>
-  )
+  );
 }
 
 // Editor de várias imagens. A primeira da lista é a capa. Limite MAX_PRODUCT_IMAGES.
@@ -239,38 +300,38 @@ function ImagesField({
   value,
   onChange,
 }: {
-  value: Product
-  onChange: (p: Product) => void
+  value: Product;
+  onChange: (p: Product) => void;
 }) {
   // Lista unificada: capa + galeria.
-  const list = [value.image, ...(value.images ?? [])].filter(Boolean)
-  const canAdd = list.length < MAX_PRODUCT_IMAGES
+  const list = [value.image, ...(value.images ?? [])].filter(Boolean);
+  const canAdd = list.length < MAX_PRODUCT_IMAGES;
 
   function commit(next: string[]) {
-    const clean = next.filter(Boolean)
-    onChange({ ...value, image: clean[0] ?? "", images: clean.slice(1) })
+    const clean = next.filter(Boolean);
+    onChange({ ...value, image: clean[0] ?? "", images: clean.slice(1) });
   }
 
   // Trabalha sobre um espelho editável que preserva campos em branco enquanto digita.
-  const draft = list.length ? list : [""]
+  const draft = list.length ? list : [""];
 
   function update(i: number, v: string) {
-    const next = [...draft]
-    next[i] = v
-    commit(next)
+    const next = [...draft];
+    next[i] = v;
+    commit(next);
   }
   function remove(i: number) {
-    commit(draft.filter((_, idx) => idx !== i))
+    commit(draft.filter((_, idx) => idx !== i));
   }
   function add() {
-    commit([...draft, ""])
+    commit([...draft, ""]);
   }
   function move(i: number, dir: -1 | 1) {
-    const j = i + dir
-    if (j < 0 || j >= draft.length) return
-    const next = [...draft]
-      ;[next[i], next[j]] = [next[j], next[i]]
-    commit(next)
+    const j = i + dir;
+    if (j < 0 || j >= draft.length) return;
+    const next = [...draft];
+    [next[i], next[j]] = [next[j], next[i]];
+    commit(next);
   }
 
   return (
@@ -329,5 +390,5 @@ function ImagesField({
         </button>
       )}
     </div>
-  )
+  );
 }
