@@ -2,18 +2,18 @@
 import { useState } from "react";
 import {
   MAX_PRODUCT_IMAGES,
-  SUPPLIERS,
   brl,
   productImages,
   type Product,
 } from "@/lib/data";
+import { useStore } from "@/lib/store";
 import { Field } from "./Shared";
 
 const BLANK: Product = {
   id: "",
   name: "",
   category: ["Vestuário"],
-  supplierId: SUPPLIERS[0].id,
+  supplierId: "confeccoes-ic",
   price: 0,
   stock: 0,
   image: "",
@@ -172,6 +172,7 @@ function ProductForm({
   submitLabel: string;
   isNew?: boolean;
 }) {
+  const { suppliers } = useStore();
   const set = (patch: Partial<Product>) => onChange({ ...value, ...patch });
   const valid = value.name.trim() && value.price > 0;
   return (
@@ -253,7 +254,7 @@ function ProductForm({
             onChange={(e) => set({ supplierId: e.target.value })}
             className="mt-1 w-full rounded-lg border border-line bg-ink px-3 py-2 font-mono text-sm outline-none focus:border-cyan"
           >
-            {SUPPLIERS.map((s) => (
+            {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
               </option>

@@ -1,6 +1,6 @@
 "use client"
 import { useStore } from "@/lib/store"
-import { SUPPLIERS, brl, type Order, type Fulfillment } from "@/lib/data"
+import { brl, type Order, type Fulfillment } from "@/lib/data"
 import { OrderStepper } from "@/components/OrderStepper"
 import { StatusPill, PinBadge } from "@/components/Shared"
 import { useRouter } from "next/navigation"
@@ -10,11 +10,11 @@ type FlowEntry = { order: Order; fulfillment: Fulfillment }
 export function MeusPedidos() {
   const router = useRouter()
   const onGoLoja = () => router.push("/")
-  const { orders } = useStore()
-  const mine = orders.filter((o) => o.buyer === "Você")
+  const { orders, suppliers, user } = useStore()
+  const mine = orders.filter((o) => o.buyer === "Você" || (user && o.buyer === user.name))
 
-  // Agrupa fulfillments por fornecedor.
-  const bySupplier = SUPPLIERS.map((supplier) => {
+  // Agrupa fulfillments por fornecedor cadastrado na store.
+  const bySupplier = suppliers.map((supplier) => {
     const entries: FlowEntry[] = []
     for (const order of mine) {
       for (const f of order.fulfillments) {
@@ -98,7 +98,10 @@ export function MeusPedidos() {
                     </ul>
 
                     <div className="mt-5">
-                      <OrderStepper status={fulfillment.status} />
+                      <OrderStepper
+                        status={fulfillment.status}
+                        stages={supplier.preparationFlow}
+                      />
                     </div>
 
                     <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">

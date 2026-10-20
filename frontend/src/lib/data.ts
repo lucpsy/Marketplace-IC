@@ -1,9 +1,18 @@
 /* ---------------------------------------------------------------- Suppliers */
 
+export const DEFAULT_PREPARATION_FLOW: string[] = [
+  "Confirmado",
+  "Em separação",
+  "Pronto para retirada",
+  "Entregue",
+];
+
 export type Supplier = {
   id: string;
   name: string;
   pickupLocation: string;
+  contact?: string;
+  preparationFlow: string[];
 };
 
 export const SUPPLIERS: Supplier[] = [
@@ -11,25 +20,49 @@ export const SUPPLIERS: Supplier[] = [
     id: "confeccoes-ic",
     name: "Confecções IC",
     pickupLocation: "Sala do DIACOM — Bloco 4",
+    contact: "confeccoes@diacom.ic.ufal.br",
+    preparationFlow: [
+      "Confirmado",
+      "Corte & Estamparia",
+      "Em separação",
+      "Pronto para retirada",
+      "Entregue",
+    ],
   },
   {
     id: "grafica-campus",
     name: "Gráfica Campus",
     pickupLocation: "Gráfica Central — Bloco 1",
+    contact: "grafica@campus.ufal.br",
+    preparationFlow: [
+      "Confirmado",
+      "Impressão / Acabamento",
+      "Pronto para retirada",
+      "Entregue",
+    ],
   },
   {
     id: "brindes-ufal",
     name: "Brindes UFAL",
     pickupLocation: "Centro de Convivência — Térreo",
+    contact: "brindes@ufal.br",
+    preparationFlow: [
+      "Confirmado",
+      "Em separação",
+      "Pronto para retirada",
+      "Entregue",
+    ],
   },
 ];
 
-export function supplierName(id: string) {
-  return SUPPLIERS.find((s) => s.id === id)?.name ?? id;
+export function supplierName(id: string, list?: Supplier[]) {
+  const arr = list ?? SUPPLIERS;
+  return arr.find((s) => s.id === id)?.name ?? id;
 }
 
-export function supplierOf(id: string) {
-  return SUPPLIERS.find((s) => s.id === id);
+export function supplierOf(id: string, list?: Supplier[]) {
+  const arr = list ?? SUPPLIERS;
+  return arr.find((s) => s.id === id);
 }
 
 /* ----------------------------------------------------------------- Products */
@@ -262,6 +295,8 @@ export type Txn = {
   method: "Pix" | "Cartão" | "Dinheiro";
   amount: number; // positive = entrada, negative = saída
   status: "Concluído" | "Processando" | "Estornado";
+  validator?: string; // Nome do validador (ex.: Lucas Amorim, Prof. Dr. Willy Tiengo)
+  validatorRole?: string; // Cargo ou conselho validador (ex.: Conselho Fiscal DIACOM)
 };
 
 export const TRANSACTIONS: Txn[] = [
@@ -364,6 +399,8 @@ export const TRANSACTIONS: Txn[] = [
     method: "Pix",
     amount: -300,
     status: "Concluído",
+    validator: "Lucas Amorim",
+    validatorRole: "Diretor Financeiro DIACOM",
   },
   {
     id: "t11",
@@ -520,3 +557,30 @@ export function downloadCSV(
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/* --------------------------------------------------------------- Mock Users */
+
+export type MockUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: "cliente" | "admin";
+  courseOrDept?: string;
+};
+
+export const MOCK_USERS: MockUser[] = [
+  {
+    id: "u-cliente",
+    name: "Lucas Tenório",
+    email: "aluno@ic.ufal.br",
+    role: "cliente",
+    courseOrDept: "Ciência da Computação (2023.1)",
+  },
+  {
+    id: "u-admin",
+    name: "Coordenação DIACOM",
+    email: "admin@diacom.ic.ufal.br",
+    role: "admin",
+    courseOrDept: "Diretoria Executiva / DIACOM",
+  },
+];

@@ -1,6 +1,6 @@
 "use client"
 import { useMemo, useState } from "react"
-import { COUPONS, brl, effectivePrice, type Coupon } from "@/lib/data"
+import { brl, effectivePrice, type Coupon } from "@/lib/data"
 import { useStore } from "@/lib/store"
 import { QtyBtn, Row, CartIcon, PinBadge } from "./Shared"
 import { useRouter } from "next/navigation"
@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation"
 export function CartDrawer() {
   const router = useRouter()
   const onSeeOrders = () => router.push("/meus-pedidos")
-  const { cart, setQty, checkout, promotions, cartOpen, setCartOpen } = useStore()
+  const { cart, setQty, checkout, promotions, coupons, cartOpen, setCartOpen } = useStore()
   const onClose = () => setCartOpen(false)
 
   const [code, setCode] = useState("")
@@ -36,7 +36,7 @@ export function CartDrawer() {
 
   function applyCoupon() {
     setError("")
-    const found = COUPONS.find(
+    const found = coupons.find(
       (c) => c.code.toUpperCase() === code.trim().toUpperCase(),
     )
     if (!found) {
@@ -228,7 +228,7 @@ export function CartDrawer() {
                   </p>
                 )}
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {COUPONS.map((c) => (
+                  {coupons.map((c) => (
                     <button
                       key={c.code}
                       onClick={() => setCode(c.code)}
