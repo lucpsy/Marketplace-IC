@@ -13,6 +13,7 @@ export type Supplier = {
   pickupLocation: string;
   contact?: string;
   preparationFlow: string[];
+  currentStage?: string;
 };
 
 export const SUPPLIERS: Supplier[] = [
@@ -28,6 +29,7 @@ export const SUPPLIERS: Supplier[] = [
       "Pronto para retirada",
       "Entregue",
     ],
+    currentStage: "Corte & Estamparia",
   },
   {
     id: "grafica-campus",
@@ -40,6 +42,7 @@ export const SUPPLIERS: Supplier[] = [
       "Pronto para retirada",
       "Entregue",
     ],
+    currentStage: "Impressão / Acabamento",
   },
   {
     id: "brindes-ufal",
@@ -52,6 +55,7 @@ export const SUPPLIERS: Supplier[] = [
       "Pronto para retirada",
       "Entregue",
     ],
+    currentStage: "Em separação",
   },
 ];
 

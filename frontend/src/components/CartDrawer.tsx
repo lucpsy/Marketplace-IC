@@ -22,7 +22,7 @@ export function CartDrawer() {
     (s, l) => s + effectivePrice(l.product, promotions).current * l.qty,
     0,
   )
-  const baseShipping = subtotal > 0 ? 12 : 0
+  const baseShipping = 0
 
   const discount = useMemo(() => {
     if (!coupon) return 0

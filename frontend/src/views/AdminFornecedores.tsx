@@ -71,11 +71,13 @@ export function AdminFornecedores() {
     addSupplier,
     updateSupplier,
     removeSupplier,
+    updateSupplierStage,
     updateFulfillmentStatus,
   } = useStore()
 
   const [draft, setDraft] = useState<Supplier | null>(null)
   const [expandedOrdersSupplierId, setExpandedOrdersSupplierId] = useState<string | null>(null)
+  const [syncOnStageChange, setSyncOnStageChange] = useState<Record<string, boolean>>({})
 
   const isNew = draft !== null && !suppliers.some((s) => s.id === draft.id)
 
@@ -263,22 +265,130 @@ export function AdminFornecedores() {
                   </div>
                 </div>
 
-                {/* Visual Workflow Steps */}
+                {/* Visual Workflow — Estágio Atual + Stepper */}
                 <div className="mt-6 rounded-xl border border-line/60 bg-ink/50 p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="label text-muted">
-                      Fluxo de Preparamento ({supplier.preparationFlow.length} etapas configuradas)
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="label text-muted">
+                        Fluxo de Preparamento ({supplier.preparationFlow.length} etapas)
+                      </span>
+                    </div>
                     <span className="text-[11px] text-muted">
                       {supplierProducts.length} produtos cadastrados
                     </span>
                   </div>
-                  <div className="mt-4">
-                    <OrderStepper
-                      status={supplier.preparationFlow[0] ?? "Confirmado"}
-                      stages={supplier.preparationFlow}
-                    />
+
+                  {/* Controle de Estágio Atual */}
+                  <div className="mb-4 rounded-lg border border-cyan/20 bg-cyan/5 p-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-cyan shrink-0"
+                        >
+                          <path d="M12 3v3m0 12v3M4.22 4.22l2.12 2.12m11.32 11.32 2.12 2.12M3 12h3m12 0h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" />
+                          <circle cx="12" cy="12" r="4" />
+                        </svg>
+                        <span className="label text-cyan text-[11px]">Estágio Global do Fornecedor</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          value={supplier.currentStage ?? supplier.preparationFlow[0] ?? ""}
+                          onChange={(e) =>
+                            updateSupplierStage(
+                              supplier.id,
+                              e.target.value,
+                              syncOnStageChange[supplier.id] ?? false,
+                            )
+                          }
+                          className="rounded-lg border border-cyan/40 bg-ink px-3 py-1.5 font-mono text-xs text-cyan outline-none focus:border-cyan"
+                        >
+                          {supplier.preparationFlow.map((stage) => (
+                            <option key={stage} value={stage}>
+                              {stage}
+                            </option>
+                          ))}
+                        </select>
+
+                        {/* Botões de atalho: Anterior / Próximo */}
+                        <button
+                          type="button"
+                          title="Etapa anterior"
+                          disabled={
+                            supplier.preparationFlow.indexOf(
+                              supplier.currentStage ?? supplier.preparationFlow[0],
+                            ) <= 0
+                          }
+                          onClick={() => {
+                            const cur = supplier.currentStage ?? supplier.preparationFlow[0]
+                            const idx = supplier.preparationFlow.indexOf(cur)
+                            if (idx > 0)
+                              updateSupplierStage(
+                                supplier.id,
+                                supplier.preparationFlow[idx - 1],
+                                syncOnStageChange[supplier.id] ?? false,
+                              )
+                          }}
+                          className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-cyan hover:text-cyan disabled:opacity-30"
+                        >
+                          ← Anterior
+                        </button>
+                        <button
+                          type="button"
+                          title="Próxima etapa"
+                          disabled={
+                            supplier.preparationFlow.indexOf(
+                              supplier.currentStage ?? supplier.preparationFlow[0],
+                            ) >= supplier.preparationFlow.length - 1
+                          }
+                          onClick={() => {
+                            const cur = supplier.currentStage ?? supplier.preparationFlow[0]
+                            const idx = supplier.preparationFlow.indexOf(cur)
+                            if (idx < supplier.preparationFlow.length - 1)
+                              updateSupplierStage(
+                                supplier.id,
+                                supplier.preparationFlow[idx + 1],
+                                syncOnStageChange[supplier.id] ?? false,
+                              )
+                          }}
+                          className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-cyan hover:text-cyan disabled:opacity-30"
+                        >
+                          Próximo →
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Opção de sincronização com pedidos */}
+                    <label className="mt-2.5 flex cursor-pointer items-center gap-2 text-xs text-muted">
+                      <input
+                        type="checkbox"
+                        checked={syncOnStageChange[supplier.id] ?? false}
+                        onChange={(e) =>
+                          setSyncOnStageChange((prev) => ({
+                            ...prev,
+                            [supplier.id]: e.target.checked,
+                          }))
+                        }
+                        className="size-3.5 accent-cyan"
+                      />
+                      <span>
+                        Sincronizar automaticamente todos os pedidos ativos deste fornecedor ao mudar o estágio
+                      </span>
+                    </label>
                   </div>
+
+                  {/* Stepper visual mostrando o estágio atual */}
+                  <OrderStepper
+                    status={supplier.currentStage ?? supplier.preparationFlow[0] ?? "Confirmado"}
+                    stages={supplier.preparationFlow}
+                  />
                 </div>
 
                 {/* Sub-panel: Manage Active Orders along this flow */}

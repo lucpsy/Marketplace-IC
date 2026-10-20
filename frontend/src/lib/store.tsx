@@ -161,6 +161,27 @@ export function AppStore({ children }: { children: ReactNode }) {
     setSuppliers((prev) => prev.filter((x) => x.id !== id))
   }
 
+  /**
+   * Altera o estágio global atual de um fornecedor (currentStage)
+   * e, opcionalmente, sincroniza todos os fulfillments ativos daquele
+   * fornecedor para o mesmo estágio — útil para avançar o batch inteiro.
+   */
+  function updateSupplierStage(supplierId: string, newStage: string, syncOrders = false) {
+    setSuppliers((prev) =>
+      prev.map((s) => (s.id === supplierId ? { ...s, currentStage: newStage } : s)),
+    )
+    if (syncOrders) {
+      setOrders((prev) =>
+        prev.map((order) => ({
+          ...order,
+          fulfillments: order.fulfillments.map((f) =>
+            f.supplierId === supplierId ? { ...f, status: newStage as any } : f,
+          ),
+        })),
+      )
+    }
+  }
+
   function updateFulfillmentStatus(orderId: string, supplierId: string, status: string) {
     setOrders((prev) =>
       prev.map((order) => {
@@ -344,6 +365,7 @@ export function AppStore({ children }: { children: ReactNode }) {
     addSupplier,
     updateSupplier,
     removeSupplier,
+    updateSupplierStage,
     updateFulfillmentStatus,
     coupons,
     addCoupon,
