@@ -95,17 +95,19 @@ export function Transparencia() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowRepasseModal(true)}
-            className="flex items-center gap-2 rounded-xl bg-cyan px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5]"
-          >
-            <span>+ Novo Repasse</span>
-            <span className="rounded bg-ink/20 px-1.5 py-0.5 text-[10px] font-mono font-bold">
-              com Validador
-            </span>
-          </button>
-        </div>
+        {role === "admin" && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowRepasseModal(true)}
+              className="flex items-center gap-2 rounded-xl bg-cyan px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5]"
+            >
+              <span>+ Novo Repasse</span>
+              <span className="rounded bg-ink/20 px-1.5 py-0.5 text-[10px] font-mono font-bold">
+                com Validador
+              </span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="mt-8">
@@ -403,7 +405,7 @@ export function Transparencia() {
 
                     {/* Actions Column */}
                     <td className="whitespace-nowrap px-4 py-3 text-right">
-                      {t.category === "Repasse" || role === "admin" ? (
+                      {role === "admin" ? (
                         <button
                           onClick={() => handleRemove(t)}
                           className="rounded px-2.5 py-1 text-xs text-red-400 transition-colors hover:bg-red-400/10 hover:text-red-300"
