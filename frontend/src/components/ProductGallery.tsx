@@ -42,12 +42,12 @@ export function ProductGallery({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-line bg-panel md:flex-row"
+        className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-y-auto rounded-2xl border border-line bg-panel shadow-2xl md:flex-row md:overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Visualizador */}
-        <div className="relative flex-1 bg-ink">
-          <div className="relative aspect-square w-full overflow-hidden">
+        <div className="relative flex flex-1 flex-col justify-between bg-ink min-h-0 overflow-hidden">
+          <div className="relative aspect-square w-full min-h-0 flex-1 overflow-hidden flex items-center justify-center bg-black/20">
             <img
               src={images[idx]}
               alt={`${product.name} — foto ${idx + 1}`}
@@ -76,13 +76,16 @@ export function ProductGallery({
             )}
           </div>
           {images.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto p-3">
+            <div className="shrink-0 flex gap-2 overflow-x-auto p-3 border-t border-line/40 bg-panel/30">
               {images.map((src, i) => (
                 <button
                   key={src + i}
                   onClick={() => setIdx(i)}
-                  className={`size-14 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${i === idx ? "border-cyan" : "border-transparent opacity-60 hover:opacity-100"
-                    }`}
+                  className={`size-14 shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
+                    i === idx
+                      ? "border-cyan ring-2 ring-cyan/30"
+                      : "border-transparent opacity-60 hover:opacity-100"
+                  }`}
                 >
                   <img src={src} alt="" className="size-full object-cover" />
                 </button>
@@ -92,7 +95,7 @@ export function ProductGallery({
         </div>
 
         {/* Detalhes */}
-        <div className="flex w-full flex-col p-6 md:max-w-xs">
+        <div className="flex w-full flex-col p-6 md:max-w-xs md:overflow-y-auto shrink-0">
           <div className="flex items-start justify-between gap-3">
             <p className="label text-cyan">{supplierName(product.supplierId)}</p>
             <button

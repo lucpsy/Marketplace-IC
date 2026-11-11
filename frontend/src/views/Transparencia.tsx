@@ -17,11 +17,48 @@ const VALIDATOR_PRESETS = [
 export function Transparencia() {
   const router = useRouter()
   const onGoLoja = () => router.push("/")
-  const { txns, role, addRepasse, removeTxn } = useStore()
+  const { txns, role, addRepasse, removeTxn, offerDeadline, setOfferDeadline } = useStore()
 
   const [filter, setFilter] = useState<
     "Todos" | "Vendas" | "Custo" | "Repasse" | "Taxa"
   >("Todos")
+
+  // Deadline Modal state
+  const [showDeadlineModal, setShowDeadlineModal] = useState(false)
+  const [tempDeadline, setTempDeadline] = useState("")
+  const [deadlineFeedback, setDeadlineFeedback] = useState<string | null>(null)
+
+  function openDeadlineModal() {
+    const d = new Date(offerDeadline)
+    if (!isNaN(d.getTime())) {
+      const pad = (n: number) => String(n).padStart(2, "0")
+      const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+      setTempDeadline(localIso)
+    } else {
+      setTempDeadline("")
+    }
+    setDeadlineFeedback(null)
+    setShowDeadlineModal(true)
+  }
+
+  function handleSaveDeadline(e: React.FormEvent) {
+    e.preventDefault()
+    if (!tempDeadline) {
+      alert("Por favor, selecione uma data e horário válidos.")
+      return
+    }
+    const dateObj = new Date(tempDeadline)
+    if (isNaN(dateObj.getTime())) {
+      alert("Data ou horário inválido.")
+      return
+    }
+    setOfferDeadline(tempDeadline)
+    setDeadlineFeedback("Prazo de compras atualizado com sucesso!")
+    setTimeout(() => {
+      setShowDeadlineModal(false)
+      setDeadlineFeedback(null)
+    }, 700)
+  }
 
   // Repasse Modal / Form state
   const [showRepasseModal, setShowRepasseModal] = useState(false)
@@ -96,7 +133,15 @@ export function Transparencia() {
         </div>
 
         {role === "admin" && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={openDeadlineModal}
+              className="flex items-center gap-2 rounded-xl border border-cyan/40 bg-cyan/10 px-4 py-2.5 text-sm font-semibold text-cyan transition-colors hover:bg-cyan/20"
+              title="Configurar prazo limite de encomendas e compras"
+            >
+              <span>⏱️ Prazo de Compras</span>
+            </button>
+
             <button
               onClick={() => setShowRepasseModal(true)}
               className="flex items-center gap-2 rounded-xl bg-cyan px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5]"
@@ -111,7 +156,7 @@ export function Transparencia() {
       </div>
 
       <div className="mt-8">
-        <OfferDeadline onGoLoja={onGoLoja} />
+        <OfferDeadline onGoLoja={onGoLoja} onEditDeadline={openDeadlineModal} />
       </div>
 
       <div className="mt-12 mb-6 flex items-center justify-between">
@@ -310,6 +355,139 @@ export function Transparencia() {
                   className="rounded-xl bg-cyan px-5 py-2 text-sm font-bold text-ink transition-colors hover:bg-[#5cebf5]"
                 >
                   Registrar Repasse
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal / Form for Offer Deadline */}
+      {showDeadlineModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-cyan/40 bg-panel p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div>
+                <p className="label text-cyan">Gestão da Loja & Encomendas</p>
+                <h3 className="font-display text-xl font-bold">Definir Prazo de Compras</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeadlineModal(false)}
+                className="text-muted hover:text-fg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {deadlineFeedback && (
+              <div className="mt-4 rounded-xl border border-cyan/40 bg-cyan/10 px-3.5 py-2.5 text-xs text-cyan">
+                {deadlineFeedback}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveDeadline} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-muted">
+                  Data e Horário Limite para Pedidos *
+                </label>
+                <input
+                  type="datetime-local"
+                  value={tempDeadline}
+                  onChange={(e) => setTempDeadline(e.target.value)}
+                  required
+                  className="mt-1 w-full rounded-xl border border-line bg-ink px-3.5 py-2.5 font-mono text-sm text-fg outline-none focus:border-cyan"
+                />
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div>
+                <span className="text-[11px] font-medium text-muted">
+                  Atalhos rápidos para definição de prazo:
+                </span>
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {[
+                    { label: "+3 dias", days: 3 },
+                    { label: "+7 dias", days: 7 },
+                    { label: "+15 dias", days: 15 },
+                    { label: "+30 dias", days: 30 },
+                  ].map(({ label, days }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => {
+                        const target = new Date(Date.now() + days * 86400000)
+                        target.setHours(23, 59, 0, 0)
+                        const pad = (n: number) => String(n).padStart(2, "0")
+                        setTempDeadline(
+                          `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`
+                        )
+                      }}
+                      className="rounded-lg border border-line bg-ink/60 px-2.5 py-1 text-xs text-muted transition-colors hover:border-cyan hover:text-cyan"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const now = new Date()
+                      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 0)
+                      const pad = (n: number) => String(n).padStart(2, "0")
+                      setTempDeadline(
+                        `${lastDay.getFullYear()}-${pad(lastDay.getMonth() + 1)}-${pad(lastDay.getDate())}T${pad(lastDay.getHours())}:${pad(lastDay.getMinutes())}`
+                      )
+                    }}
+                    className="rounded-lg border border-line bg-ink/60 px-2.5 py-1 text-xs text-muted transition-colors hover:border-cyan hover:text-cyan"
+                  >
+                    Fim deste mês
+                  </button>
+                </div>
+              </div>
+
+              {/* Preview Box */}
+              {tempDeadline && !isNaN(new Date(tempDeadline).getTime()) && (
+                <div className="rounded-xl border border-line/70 bg-ink/50 p-3.5 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted">Prazo selecionado:</span>
+                    <span className="font-mono text-cyan font-semibold">
+                      {new Date(tempDeadline).toLocaleDateString("pt-BR", {
+                        weekday: "short",
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                  <div>
+                    {new Date(tempDeadline).getTime() > Date.now() ? (
+                      <span className="text-emerald-400 font-medium">
+                        ● Campanha ficará aberta com contagem regressiva ativa
+                      </span>
+                    ) : (
+                      <span className="text-amber-400 font-medium">
+                        ⚠️ Data informada já expirou (campanha será exibida como encerrada)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 border-t border-line pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeadlineModal(false)}
+                  className="rounded-xl border border-line px-4 py-2 text-sm text-fg hover:border-muted"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-cyan px-5 py-2 text-sm font-bold text-ink transition-colors hover:bg-[#5cebf5]"
+                >
+                  Salvar Novo Prazo
                 </button>
               </div>
             </form>

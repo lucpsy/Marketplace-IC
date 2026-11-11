@@ -455,6 +455,7 @@ export type Order = {
   id: string; // ex.: #DC-1043
   date: string; // ISO
   buyer: string;
+  buyerId?: string; // id do MockUser comprador
   total: number;
   method: "Pix" | "Cartão" | "Dinheiro";
   pin: string; // PIN único de retirada por pedido
@@ -465,7 +466,8 @@ export const INITIAL_ORDERS: Order[] = [
   {
     id: "#DC-1042",
     date: "2026-09-08",
-    buyer: "Você",
+    buyer: "Lucas Tenório",
+    buyerId: "u-cliente",
     total: 258,
     method: "Pix",
     pin: "4827",
@@ -482,7 +484,8 @@ export const INITIAL_ORDERS: Order[] = [
   {
     id: "#DC-1041",
     date: "2026-09-07",
-    buyer: "Você",
+    buyer: "Lucas Tenório",
+    buyerId: "u-cliente",
     total: 197,
     method: "Cartão",
     pin: "1593",
@@ -505,6 +508,7 @@ export const INITIAL_ORDERS: Order[] = [
     id: "#DC-1039",
     date: "2026-09-04",
     buyer: "Lucas Tenório",
+    buyerId: "u-cliente",
     total: 68,
     method: "Dinheiro",
     pin: "7210",

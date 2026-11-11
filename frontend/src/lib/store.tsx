@@ -10,6 +10,7 @@ import {
   MOCK_USERS,
   PAYMENT_FEE,
   genPin,
+  OFFER_DEADLINE,
   type Product,
   type Promotion,
   type Txn,
@@ -49,6 +50,9 @@ type Store = {
   login: (email: string, password?: string, forceRole?: Role) => boolean
   logout: () => void
 
+  offerDeadline: string
+  setOfferDeadline: (deadline: string) => void
+
   products: Product[]
   addProduct: (p: Product) => void
   updateProduct: (p: Product) => void
@@ -58,6 +62,7 @@ type Store = {
   addSupplier: (s: Supplier) => void
   updateSupplier: (s: Supplier) => void
   removeSupplier: (id: string) => void
+  updateSupplierStage: (supplierId: string, newStage: string, syncOrders?: boolean) => void
   updateFulfillmentStatus: (orderId: string, supplierId: string, status: string) => void
 
   coupons: Coupon[]
@@ -95,6 +100,7 @@ export function useStore() {
 export function AppStore({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MockUser | null>(null)
   const [role, setRoleState] = useState<Role>("cliente")
+  const [offerDeadline, setOfferDeadline] = useState<string>(OFFER_DEADLINE)
   const [suppliers, setSuppliers] = useState<Supplier[]>(SUPPLIERS)
   const [coupons, setCoupons] = useState<Coupon[]>(COUPONS)
   const [products, setProducts] = useState<Product[]>(PRODUCTS)
@@ -102,6 +108,7 @@ export function AppStore({ children }: { children: ReactNode }) {
   const [txns, setTxns] = useState<Txn[]>(TRANSACTIONS)
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS)
   const [cart, setCart] = useState<CartLine[]>([])
+  const [userCarts, setUserCarts] = useState<Record<string, CartLine[]>>({})
   const [cartOpen, setCartOpen] = useState(false)
   const nextOrderNo = useRef(1043)
 
@@ -126,26 +133,33 @@ export function AppStore({ children }: { children: ReactNode }) {
       (u) => u.email.toLowerCase() === cleanEmail || u.role === targetRole,
     )
 
+    let authenticatedUser: MockUser
     if (found) {
+      authenticatedUser = found
       setUser(found)
       setRoleState(found.role)
     } else {
-      const newUser: MockUser = {
+      authenticatedUser = {
         id: `u-${Date.now()}`,
         name: cleanEmail.split("@")[0] || "Usuário",
         email: cleanEmail,
         role: targetRole,
         courseOrDept: targetRole === "admin" ? "Diretoria DIACOM" : "Instituto de Computação",
       }
-      setUser(newUser)
+      setUser(authenticatedUser)
       setRoleState(targetRole)
     }
+
+    // Restaura o carrinho associado ao usuário logado
+    setCart(userCarts[authenticatedUser.id] ?? [])
     return true
   }
 
   function logout() {
     setUser(null)
     setRoleState("cliente")
+    setCart([]) // Esvazia o carrinho ao deslogar
+    setCartOpen(false)
   }
 
   /* Suppliers */
@@ -268,25 +282,34 @@ export function AppStore({ children }: { children: ReactNode }) {
   function addToCart(product: Product) {
     setCart((prev) => {
       const found = prev.find((l) => l.product.id === product.id)
-      if (found)
-        return prev.map((l) =>
-          l.product.id === product.id ? { ...l, qty: l.qty + 1 } : l,
-        )
-      return [...prev, { product, qty: 1 }]
+      const next = found
+        ? prev.map((l) => (l.product.id === product.id ? { ...l, qty: l.qty + 1 } : l))
+        : [...prev, { product, qty: 1 }]
+      if (user) {
+        setUserCarts((all) => ({ ...all, [user.id]: next }))
+      }
+      return next
     })
-    setCartOpen(true)
   }
 
   function setQty(id: string, qty: number) {
-    setCart((prev) =>
-      qty <= 0
-        ? prev.filter((l) => l.product.id !== id)
-        : prev.map((l) => (l.product.id === id ? { ...l, qty } : l)),
-    )
+    setCart((prev) => {
+      const next =
+        qty <= 0
+          ? prev.filter((l) => l.product.id !== id)
+          : prev.map((l) => (l.product.id === id ? { ...l, qty } : l))
+      if (user) {
+        setUserCarts((all) => ({ ...all, [user.id]: next }))
+      }
+      return next
+    })
   }
 
   function clearCart() {
     setCart([])
+    if (user) {
+      setUserCarts((all) => ({ ...all, [user.id]: [] }))
+    }
   }
 
   function checkout(p: CheckoutPayload) {
@@ -338,7 +361,8 @@ export function AppStore({ children }: { children: ReactNode }) {
     const order: Order = {
       id,
       date: today,
-      buyer: user?.name || "Você",
+      buyer: user?.name || "Cliente Convidado",
+      buyerId: user?.id,
       total: p.total,
       method: p.method,
       pin,
@@ -348,6 +372,9 @@ export function AppStore({ children }: { children: ReactNode }) {
     setTxns((prev) => [saleTxn, feeTxn, ...prev])
     setOrders((prev) => [order, ...prev])
     setCart([])
+    if (user) {
+      setUserCarts((all) => ({ ...all, [user.id]: [] }))
+    }
     return { id, pin }
   }
 
@@ -357,6 +384,8 @@ export function AppStore({ children }: { children: ReactNode }) {
     user,
     login,
     logout,
+    offerDeadline,
+    setOfferDeadline,
     products,
     addProduct,
     updateProduct,

@@ -16,7 +16,7 @@ const CLIENT_NAV: NavItem[] = [
 ]
 
 const ADMIN_NAV: NavItem[] = [
-  { label: "Loja", href: "/" },
+  { label: "Catálogo", href: "/admin/loja" },
   { label: "Controle", href: "/admin/controle" },
   { label: "Fornecedores", href: "/admin/fornecedores" },
   { label: "Promoções & Cupons", href: "/admin/promocoes" },

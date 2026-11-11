@@ -11,26 +11,84 @@ export function MeusPedidos() {
   const router = useRouter()
   const onGoLoja = () => router.push("/")
   const { orders, suppliers, user } = useStore()
-  const mine = orders.filter((o) => o.buyer === "Você" || (user && o.buyer === user.name))
+
+  // Filtra apenas pedidos associados ao usuário logado
+  const mine = user
+    ? orders.filter(
+        (o) =>
+          (o.buyerId && o.buyerId === user.id) ||
+          o.buyer.trim().toLowerCase() === user.name.trim().toLowerCase(),
+      )
+    : []
 
   // Agrupa fulfillments por fornecedor cadastrado na store.
-  const bySupplier = suppliers.map((supplier) => {
-    const entries: FlowEntry[] = []
-    for (const order of mine) {
-      for (const f of order.fulfillments) {
-        if (f.supplierId === supplier.id) entries.push({ order, fulfillment: f })
+  const bySupplier = suppliers
+    .map((supplier) => {
+      const entries: FlowEntry[] = []
+      for (const order of mine) {
+        for (const f of order.fulfillments) {
+          if (f.supplierId === supplier.id) entries.push({ order, fulfillment: f })
+        }
       }
-    }
-    return { supplier, entries }
-  }).filter((g) => g.entries.length > 0)
+      return { supplier, entries }
+    })
+    .filter((g) => g.entries.length > 0)
+
+  // Caso o usuário não esteja logado
+  if (!user) {
+    return (
+      <section className="mx-auto max-w-6xl px-4 pt-14 pb-24">
+        <p className="label text-cyan">Acompanhamento</p>
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+          <h1 className="font-display text-4xl font-extrabold tracking-tight">
+            Meus pedidos
+          </h1>
+          <p className="max-w-sm text-sm text-muted">
+            Faça login para acompanhar o status e o código PIN de retirada das suas encomendas.
+          </p>
+        </div>
+
+        <div className="mt-16 grid place-items-center gap-4 rounded-2xl border border-dashed border-line py-16 text-center">
+          <div className="grid size-12 place-items-center rounded-full bg-cyan/10 text-xl text-cyan">
+            🔒
+          </div>
+          <div>
+            <h3 className="font-display text-lg font-bold">Nenhuma conta conectada</h3>
+            <p className="mt-1 max-w-md text-sm text-muted">
+              Entre com sua conta institucional para visualizar seus pedidos realizados, histórico e código PIN de retirada.
+            </p>
+          </div>
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              onClick={() => router.push("/login?redirect=/meus-pedidos")}
+              className="rounded-xl bg-cyan px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5]"
+            >
+              Fazer login
+            </button>
+            <button
+              onClick={onGoLoja}
+              className="rounded-xl border border-line px-5 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-cyan hover:text-cyan"
+            >
+              Ir para a loja
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="mx-auto max-w-6xl px-4 pt-14 pb-24">
       <p className="label text-cyan">Acompanhamento</p>
       <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="font-display text-4xl font-extrabold tracking-tight">
-          Meus pedidos
-        </h1>
+        <div>
+          <h1 className="font-display text-4xl font-extrabold tracking-tight">
+            Meus pedidos
+          </h1>
+          <p className="mt-1 text-xs text-muted">
+            Pedidos de <span className="font-semibold text-cyan">{user.name}</span> ({user.email})
+          </p>
+        </div>
         <p className="max-w-sm text-sm text-muted">
           Cada fornecedor tem seu próprio fluxo de preparo. Use o PIN do pedido para
           retirar em qualquer um deles.
