@@ -2,7 +2,7 @@
 import { useStore } from "@/lib/store"
 import { brl, type Order, type Fulfillment } from "@/lib/data"
 import { OrderStepper } from "@/components/OrderStepper"
-import { StatusPill, PinBadge } from "@/components/Shared"
+import { StatusPill, PinBadge, LoadingState, ErrorState } from "@/components/Shared"
 import { useRouter } from "next/navigation"
 
 type FlowEntry = { order: Order; fulfillment: Fulfillment }
@@ -10,7 +10,7 @@ type FlowEntry = { order: Order; fulfillment: Fulfillment }
 export function MeusPedidos() {
   const router = useRouter()
   const onGoLoja = () => router.push("/")
-  const { orders, suppliers, user } = useStore()
+  const { orders, suppliers, user, isLoading, error, refetch } = useStore()
 
   // Filtra apenas pedidos associados ao usuário logado
   const mine = user
@@ -95,7 +95,13 @@ export function MeusPedidos() {
         </p>
       </div>
 
-      {bySupplier.length === 0 ? (
+      {isLoading && <LoadingState message="Carregando pedidos da API..." />}
+
+      {error && !isLoading && (
+        <ErrorState message={error} onRetry={refetch} />
+      )}
+
+      {!isLoading && !error && bySupplier.length === 0 && (
         <div className="mt-16 grid place-items-center gap-4 rounded-2xl border border-dashed border-line py-16 text-center">
           <p className="text-muted">Você ainda não tem pedidos.</p>
           <button
@@ -105,7 +111,9 @@ export function MeusPedidos() {
             Ir para a loja
           </button>
         </div>
-      ) : (
+      )}
+
+      {!isLoading && !error && bySupplier.length > 0 && (
         <div className="mt-10 space-y-10">
           {bySupplier.map(({ supplier, entries }) => (
             <div key={supplier.id}>

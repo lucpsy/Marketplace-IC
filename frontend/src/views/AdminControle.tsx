@@ -2,13 +2,13 @@
 import { Fragment, useMemo, useState } from "react"
 import { useStore } from "@/lib/store"
 import { brl, downloadCSV, supplierName } from "@/lib/data"
-import { Stat, StatusPill } from "@/components/Shared"
+import { Stat, StatusPill, LoadingState, ErrorState } from "@/components/Shared"
 import { BarChart, RevenueChart, type BarDatum } from "@/components/charts"
 
 type Period = "7d" | "30d" | "tudo"
 
 export function AdminControle() {
-  const { txns, orders } = useStore()
+  const { txns, orders, isLoading, error, refetch } = useStore()
   const [period, setPeriod] = useState<Period>("30d")
   const [open, setOpen] = useState<string | null>(null)
 
@@ -126,7 +126,15 @@ export function AdminControle() {
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {isLoading && <LoadingState message="Carregando dados financeiros da API..." />}
+
+      {error && !isLoading && (
+        <ErrorState message={error} onRetry={refetch} />
+      )}
+
+      {!isLoading && !error && (
+        <>
+          <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Total arrecadado" value={brl(arrecadado)} big />
         <Stat label="Pedidos" value={String(nPedidos)} />
         <Stat label="Ticket médio" value={brl(ticket)} accent />
@@ -233,6 +241,8 @@ export function AdminControle() {
           </table>
         </div>
       </div>
+      </>
+      )}
     </section>
   )
 }

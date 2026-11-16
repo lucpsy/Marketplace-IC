@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useStore, type Role } from "@/lib/store"
 import { brl, type Txn } from "@/lib/data"
-import { Stat, StatusPill } from "@/components/Shared"
+import { Stat, StatusPill, LoadingState, ErrorState } from "@/components/Shared"
 import { OfferDeadline } from "@/components/OfferDeadline"
 import { useRouter } from "next/navigation"
 
@@ -17,7 +17,17 @@ const VALIDATOR_PRESETS = [
 export function Transparencia() {
   const router = useRouter()
   const onGoLoja = () => router.push("/")
-  const { txns, role, addRepasse, removeTxn, offerDeadline, setOfferDeadline } = useStore()
+  const {
+    txns,
+    role,
+    addRepasse,
+    removeTxn,
+    offerDeadline,
+    setOfferDeadline,
+    isLoading,
+    error,
+    refetch,
+  } = useStore()
 
   const [filter, setFilter] = useState<
     "Todos" | "Vendas" | "Custo" | "Repasse" | "Taxa"
@@ -155,9 +165,17 @@ export function Transparencia() {
         )}
       </div>
 
-      <div className="mt-8">
-        <OfferDeadline onGoLoja={onGoLoja} onEditDeadline={openDeadlineModal} />
-      </div>
+      {isLoading && <LoadingState message="Carregando dados financeiros da API..." />}
+
+      {error && !isLoading && (
+        <ErrorState message={error} onRetry={refetch} />
+      )}
+
+      {!isLoading && !error && (
+        <>
+          <div className="mt-8">
+            <OfferDeadline onGoLoja={onGoLoja} onEditDeadline={openDeadlineModal} />
+          </div>
 
       <div className="mt-12 mb-6 flex items-center justify-between">
         <p className="label text-muted">Fluxo financeiro</p>
@@ -607,6 +625,8 @@ export function Transparencia() {
         Documentos, atas e notas fiscais completas disponíveis na sede do DIACOM mediante
         solicitação na Ouvidoria Estudantil. Repasses contam com auditoria do validador designado.
       </p>
+      </>
+      )}
     </section>
   )
 }

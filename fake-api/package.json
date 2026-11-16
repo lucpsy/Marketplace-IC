@@ -1,0 +1,12 @@
+{
+  "name": "marketplace-fake-api",
+  "version": "1.0.0",
+  "description": "Fake API com JSON Server para o Marketplace-IC",
+  "main": "server.js",
+  "scripts": {
+    "start": "json-server --watch db.json --port 3001 --host 0.0.0.0"
+  },
+  "dependencies": {
+    "json-server": "^0.17.4"
+  }
+}

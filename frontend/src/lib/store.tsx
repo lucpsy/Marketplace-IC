@@ -1,13 +1,7 @@
 "use client"
-import { createContext, useContext, useRef, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react"
+import { api } from "@/services/api"
 import {
-  PRODUCTS,
-  PROMOTIONS,
-  TRANSACTIONS,
-  INITIAL_ORDERS,
-  SUPPLIERS,
-  COUPONS,
-  MOCK_USERS,
   PAYMENT_FEE,
   genPin,
   OFFER_DEADLINE,
@@ -47,38 +41,45 @@ type Store = {
   role: Role
   setRole: (r: Role) => void
   user: MockUser | null
+  users: MockUser[]
   login: (email: string, password?: string, forceRole?: Role) => boolean
   logout: () => void
+
+  // Estados de Carregamento e Erro
+  isLoading: boolean
+  error: string | null
+  refetch: () => Promise<void>
+  clearError: () => void
 
   offerDeadline: string
   setOfferDeadline: (deadline: string) => void
 
   products: Product[]
-  addProduct: (p: Product) => void
-  updateProduct: (p: Product) => void
-  removeProduct: (id: string) => void
+  addProduct: (p: Product) => Promise<Product>
+  updateProduct: (p: Product) => Promise<Product>
+  removeProduct: (id: string) => Promise<void>
 
   suppliers: Supplier[]
-  addSupplier: (s: Supplier) => void
-  updateSupplier: (s: Supplier) => void
-  removeSupplier: (id: string) => void
-  updateSupplierStage: (supplierId: string, newStage: string, syncOrders?: boolean) => void
-  updateFulfillmentStatus: (orderId: string, supplierId: string, status: string) => void
+  addSupplier: (s: Supplier) => Promise<Supplier>
+  updateSupplier: (s: Supplier) => Promise<Supplier>
+  removeSupplier: (id: string) => Promise<void>
+  updateSupplierStage: (supplierId: string, newStage: string, syncOrders?: boolean) => Promise<void>
+  updateFulfillmentStatus: (orderId: string, supplierId: string, status: string) => Promise<void>
 
   coupons: Coupon[]
-  addCoupon: (c: Coupon) => void
-  removeCoupon: (code: string) => void
+  addCoupon: (c: Coupon) => Promise<Coupon>
+  removeCoupon: (code: string) => Promise<void>
 
   promotions: Promotion[]
-  addPromotion: (p: Promotion) => void
-  updatePromotion: (p: Promotion) => void
-  removePromotion: (id: string) => void
+  addPromotion: (p: Promotion) => Promise<Promotion>
+  updatePromotion: (p: Promotion) => Promise<Promotion>
+  removePromotion: (id: string) => Promise<void>
 
   orders: Order[]
   txns: Txn[]
-  addRepasse: (p: RepassePayload) => void
-  removeTxn: (id: string) => void
-  checkout: (p: CheckoutPayload) => { id: string; pin: string }
+  addRepasse: (p: RepassePayload) => Promise<Txn>
+  removeTxn: (id: string) => Promise<void>
+  checkout: (p: CheckoutPayload) => Promise<{ id: string; pin: string }>
 
   cart: CartLine[]
   cartCount: number
@@ -99,25 +100,77 @@ export function useStore() {
 
 export function AppStore({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MockUser | null>(null)
+  const [users, setUsers] = useState<MockUser[]>([])
   const [role, setRoleState] = useState<Role>("cliente")
   const [offerDeadline, setOfferDeadline] = useState<string>(OFFER_DEADLINE)
-  const [suppliers, setSuppliers] = useState<Supplier[]>(SUPPLIERS)
-  const [coupons, setCoupons] = useState<Coupon[]>(COUPONS)
-  const [products, setProducts] = useState<Product[]>(PRODUCTS)
-  const [promotions, setPromotions] = useState<Promotion[]>(PROMOTIONS)
-  const [txns, setTxns] = useState<Txn[]>(TRANSACTIONS)
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS)
+
+  // SEM FALLBACK: Inicializados com arrays vazios
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [promotions, setPromotions] = useState<Promotion[]>([])
+  const [txns, setTxns] = useState<Txn[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
   const [cart, setCart] = useState<CartLine[]>([])
   const [userCarts, setUserCarts] = useState<Record<string, CartLine[]>>({})
   const [cartOpen, setCartOpen] = useState(false)
-  const nextOrderNo = useRef(1043)
+
+  // Estados de Carregamento e Erro de Conexão à API
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const clearError = () => setError(null)
+
+  const loadData = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const [
+        remoteProducts,
+        remoteSuppliers,
+        remotePromotions,
+        remoteCoupons,
+        remoteOrders,
+        remoteTxns,
+        remoteUsers,
+      ] = await Promise.all([
+        api.getProducts(),
+        api.getSuppliers(),
+        api.getPromotions(),
+        api.getCoupons(),
+        api.getOrders(),
+        api.getTransactions(),
+        api.getUsers().catch(() => []),
+      ])
+
+      setProducts(remoteProducts)
+      setSuppliers(remoteSuppliers)
+      setPromotions(remotePromotions)
+      setCoupons(remoteCoupons)
+      setOrders(remoteOrders)
+      setTxns(remoteTxns)
+      setUsers(remoteUsers)
+    } catch (err: any) {
+      console.error("[AppStore] Erro ao carregar dados da API:", err)
+      setError(
+        err?.message ||
+          "Não foi possível conectar à API. Verifique se o JSON Server ou NestJS está rodando em http://localhost:3001.",
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
 
   const cartCount = cart.reduce((n, l) => n + l.qty, 0)
 
   function setRole(r: Role) {
     setRoleState(r)
     if (user) {
-      const matchingUser = MOCK_USERS.find((u) => u.role === r)
+      const matchingUser = users.find((u) => u.role === r)
       if (matchingUser) {
         setUser(matchingUser)
       } else {
@@ -129,7 +182,7 @@ export function AppStore({ children }: { children: ReactNode }) {
   function login(email: string, _password?: string, forceRole?: Role): boolean {
     const cleanEmail = email.trim().toLowerCase()
     const targetRole = forceRole || (cleanEmail.includes("admin") ? "admin" : "cliente")
-    const found = MOCK_USERS.find(
+    const found = users.find(
       (u) => u.email.toLowerCase() === cleanEmail || u.role === targetRole,
     )
 
@@ -150,7 +203,6 @@ export function AppStore({ children }: { children: ReactNode }) {
       setRoleState(targetRole)
     }
 
-    // Restaura o carrinho associado ao usuário logado
     setCart(userCarts[authenticatedUser.id] ?? [])
     return true
   }
@@ -158,105 +210,204 @@ export function AppStore({ children }: { children: ReactNode }) {
   function logout() {
     setUser(null)
     setRoleState("cliente")
-    setCart([]) // Esvazia o carrinho ao deslogar
+    setCart([])
     setCartOpen(false)
   }
 
-  /* Suppliers */
-  function addSupplier(s: Supplier) {
-    setSuppliers((prev) => [s, ...prev])
-  }
-
-  function updateSupplier(s: Supplier) {
-    setSuppliers((prev) => prev.map((x) => (x.id === s.id ? s : x)))
-  }
-
-  function removeSupplier(id: string) {
-    setSuppliers((prev) => prev.filter((x) => x.id !== id))
-  }
-
-  /**
-   * Altera o estágio global atual de um fornecedor (currentStage)
-   * e, opcionalmente, sincroniza todos os fulfillments ativos daquele
-   * fornecedor para o mesmo estágio — útil para avançar o batch inteiro.
-   */
-  function updateSupplierStage(supplierId: string, newStage: string, syncOrders = false) {
-    setSuppliers((prev) =>
-      prev.map((s) => (s.id === supplierId ? { ...s, currentStage: newStage } : s)),
-    )
-    if (syncOrders) {
-      setOrders((prev) =>
-        prev.map((order) => ({
-          ...order,
-          fulfillments: order.fulfillments.map((f) =>
-            f.supplierId === supplierId ? { ...f, status: newStage as any } : f,
-          ),
-        })),
-      )
+  /* --- Fornecedores (POST, PUT, DELETE) --- */
+  async function addSupplier(s: Supplier): Promise<Supplier> {
+    try {
+      const created = await api.createSupplier(s)
+      setSuppliers((prev) => [created, ...prev])
+      return created
+    } catch (err: any) {
+      setError(`Erro ao cadastrar fornecedor: ${err.message}`)
+      throw err
     }
   }
 
-  function updateFulfillmentStatus(orderId: string, supplierId: string, status: string) {
-    setOrders((prev) =>
-      prev.map((order) => {
-        if (order.id !== orderId) return order
-        return {
-          ...order,
-          fulfillments: order.fulfillments.map((f) =>
-            f.supplierId === supplierId ? { ...f, status: status as any } : f,
-          ),
-        }
-      }),
-    )
+  async function updateSupplier(s: Supplier): Promise<Supplier> {
+    try {
+      const updated = await api.updateSupplier(s)
+      setSuppliers((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+      return updated
+    } catch (err: any) {
+      setError(`Erro ao atualizar fornecedor: ${err.message}`)
+      throw err
+    }
   }
 
-  /* Coupons */
-  function addCoupon(c: Coupon) {
+  async function removeSupplier(id: string): Promise<void> {
+    try {
+      await api.deleteSupplier(id)
+      setSuppliers((prev) => prev.filter((x) => x.id !== id))
+    } catch (err: any) {
+      setError(`Erro ao remover fornecedor: ${err.message}`)
+      throw err
+    }
+  }
+
+  async function updateSupplierStage(supplierId: string, newStage: string, syncOrders = false): Promise<void> {
+    const sup = suppliers.find((s) => s.id === supplierId)
+    if (!sup) return
+    const updatedSup: Supplier = { ...sup, currentStage: newStage }
+
+    try {
+      await api.updateSupplier(updatedSup)
+      setSuppliers((prev) =>
+        prev.map((s) => (s.id === supplierId ? updatedSup : s)),
+      )
+
+      if (syncOrders) {
+        const affected = orders.filter((o) =>
+          o.fulfillments.some((f) => f.supplierId === supplierId),
+        )
+        const updatedList: Order[] = []
+        for (const order of affected) {
+          const updatedOrder: Order = {
+            ...order,
+            fulfillments: order.fulfillments.map((f) =>
+              f.supplierId === supplierId ? { ...f, status: newStage as any } : f,
+            ),
+          }
+          await api.updateOrder(updatedOrder)
+          updatedList.push(updatedOrder)
+        }
+        setOrders((prev) =>
+          prev.map((o) => updatedList.find((u) => u.id === o.id) || o),
+        )
+      }
+    } catch (err: any) {
+      setError(`Erro ao atualizar etapa do fornecedor: ${err.message}`)
+      throw err
+    }
+  }
+
+  async function updateFulfillmentStatus(orderId: string, supplierId: string, status: string): Promise<void> {
+    const target = orders.find((o) => o.id === orderId)
+    if (!target) return
+    const updatedOrder: Order = {
+      ...target,
+      fulfillments: target.fulfillments.map((f) =>
+        f.supplierId === supplierId ? { ...f, status: status as any } : f,
+      ),
+    }
+
+    try {
+      await api.updateOrder(updatedOrder)
+      setOrders((prev) =>
+        prev.map((order) => (order.id === orderId ? updatedOrder : order)),
+      )
+    } catch (err: any) {
+      setError(`Erro ao atualizar status do pedido: ${err.message}`)
+      throw err
+    }
+  }
+
+  /* --- Cupons (POST, DELETE) --- */
+  async function addCoupon(c: Coupon): Promise<Coupon> {
     const formatted: Coupon = {
       ...c,
       code: c.code.trim().toUpperCase(),
     }
-    setCoupons((prev) => [
-      formatted,
-      ...prev.filter((x) => x.code.toUpperCase() !== formatted.code),
-    ])
+    try {
+      const created = await api.createCoupon(formatted)
+      setCoupons((prev) => [
+        created,
+        ...prev.filter((x) => x.code.toUpperCase() !== formatted.code),
+      ])
+      return created
+    } catch (err: any) {
+      setError(`Erro ao cadastrar cupom: ${err.message}`)
+      throw err
+    }
   }
 
-  function removeCoupon(code: string) {
+  async function removeCoupon(code: string): Promise<void> {
     const normalized = code.trim().toUpperCase()
-    setCoupons((prev) => prev.filter((x) => x.code.toUpperCase() !== normalized))
+    try {
+      await api.deleteCoupon(normalized)
+      setCoupons((prev) => prev.filter((x) => x.code.toUpperCase() !== normalized))
+    } catch (err: any) {
+      setError(`Erro ao remover cupom: ${err.message}`)
+      throw err
+    }
   }
 
-  /* Products */
-  function addProduct(p: Product) {
-    setProducts((prev) => [p, ...prev])
-  }
-  function updateProduct(p: Product) {
-    setProducts((prev) => prev.map((x) => (x.id === p.id ? p : x)))
-  }
-  function removeProduct(id: string) {
-    setProducts((prev) => prev.filter((x) => x.id !== id))
-    setPromotions((prev) =>
-      prev.map((pr) => ({
-        ...pr,
-        productIds: pr.productIds.filter((pid) => pid !== id),
-      })),
-    )
+  /* --- Produtos (POST, PUT, DELETE) --- */
+  async function addProduct(p: Product): Promise<Product> {
+    try {
+      const created = await api.createProduct(p)
+      setProducts((prev) => [created, ...prev])
+      return created
+    } catch (err: any) {
+      setError(`Erro ao salvar produto: ${err.message}`)
+      throw err
+    }
   }
 
-  /* Promotions */
-  function addPromotion(p: Promotion) {
-    setPromotions((prev) => [p, ...prev])
-  }
-  function updatePromotion(p: Promotion) {
-    setPromotions((prev) => prev.map((x) => (x.id === p.id ? p : x)))
-  }
-  function removePromotion(id: string) {
-    setPromotions((prev) => prev.filter((x) => x.id !== id))
+  async function updateProduct(p: Product): Promise<Product> {
+    try {
+      const updated = await api.updateProduct(p)
+      setProducts((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+      return updated
+    } catch (err: any) {
+      setError(`Erro ao atualizar produto: ${err.message}`)
+      throw err
+    }
   }
 
-  /* Repasses & Transactions */
-  function addRepasse(payload: RepassePayload) {
+  async function removeProduct(id: string): Promise<void> {
+    try {
+      await api.deleteProduct(id)
+      setProducts((prev) => prev.filter((x) => x.id !== id))
+      setPromotions((prev) =>
+        prev.map((pr) => ({
+          ...pr,
+          productIds: pr.productIds.filter((pid) => pid !== id),
+        })),
+      )
+    } catch (err: any) {
+      setError(`Erro ao remover produto: ${err.message}`)
+      throw err
+    }
+  }
+
+  /* --- Promoções (POST, PUT, DELETE) --- */
+  async function addPromotion(p: Promotion): Promise<Promotion> {
+    try {
+      const created = await api.createPromotion(p)
+      setPromotions((prev) => [created, ...prev])
+      return created
+    } catch (err: any) {
+      setError(`Erro ao criar promoção: ${err.message}`)
+      throw err
+    }
+  }
+
+  async function updatePromotion(p: Promotion): Promise<Promotion> {
+    try {
+      const updated = await api.updatePromotion(p)
+      setPromotions((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+      return updated
+    } catch (err: any) {
+      setError(`Erro ao atualizar promoção: ${err.message}`)
+      throw err
+    }
+  }
+
+  async function removePromotion(id: string): Promise<void> {
+    try {
+      await api.deletePromotion(id)
+      setPromotions((prev) => prev.filter((x) => x.id !== id))
+    } catch (err: any) {
+      setError(`Erro ao remover promoção: ${err.message}`)
+      throw err
+    }
+  }
+
+  /* --- Repasses & Transações (POST, DELETE) --- */
+  async function addRepasse(payload: RepassePayload): Promise<Txn> {
     const id = `rep-${Date.now()}`
     const today = payload.date || new Date().toISOString().slice(0, 10)
     const newTxn: Txn = {
@@ -271,14 +422,28 @@ export function AppStore({ children }: { children: ReactNode }) {
       validator: payload.validator,
       validatorRole: payload.validatorRole || "Conselho Fiscal / DIACOM",
     }
-    setTxns((prev) => [newTxn, ...prev])
+
+    try {
+      const created = await api.createTransaction(newTxn)
+      setTxns((prev) => [created, ...prev])
+      return created
+    } catch (err: any) {
+      setError(`Erro ao salvar repasse: ${err.message}`)
+      throw err
+    }
   }
 
-  function removeTxn(id: string) {
-    setTxns((prev) => prev.filter((t) => t.id !== id))
+  async function removeTxn(id: string): Promise<void> {
+    try {
+      await api.deleteTransaction(id)
+      setTxns((prev) => prev.filter((t) => t.id !== id))
+    } catch (err: any) {
+      setError(`Erro ao remover transação: ${err.message}`)
+      throw err
+    }
   }
 
-  /* Cart */
+  /* --- Carrinho --- */
   function addToCart(product: Product) {
     setCart((prev) => {
       const found = prev.find((l) => l.product.id === product.id)
@@ -312,23 +477,24 @@ export function AppStore({ children }: { children: ReactNode }) {
     }
   }
 
-  function checkout(p: CheckoutPayload) {
-    const id = `#DC-${nextOrderNo.current++}`
+  /* --- Checkout / Pedido (POST) --- */
+  async function checkout(p: CheckoutPayload): Promise<{ id: string; pin: string }> {
+    const id = `#DC-${Date.now().toString().slice(-4)}`
     const pin = genPin()
     const today = new Date().toISOString().slice(0, 10)
     const fee = +(p.total * PAYMENT_FEE[p.method]).toFixed(2)
 
-    // Agrupa itens do carrinho por fornecedor -> fulfillments
     const bySupplier = new Map<string, OrderItem[]>()
     for (const l of p.items) {
       const arr = bySupplier.get(l.product.supplierId) ?? []
       arr.push({ productId: l.product.id, name: l.product.name, qty: l.qty })
       bySupplier.set(l.product.supplierId, arr)
     }
+
     const fulfillments: Fulfillment[] = Array.from(bySupplier.entries()).map(
       ([supplierId, items]) => {
         const sup = suppliers.find((s) => s.id === supplierId)
-        const initialStatus = sup?.preparationFlow[0] ?? "Confirmado"
+        const initialStatus = sup?.preparationFlow?.[0] ?? "Confirmado"
         return { supplierId, items, status: initialStatus as any }
       },
     )
@@ -369,21 +535,37 @@ export function AppStore({ children }: { children: ReactNode }) {
       fulfillments,
     }
 
-    setTxns((prev) => [saleTxn, feeTxn, ...prev])
-    setOrders((prev) => [order, ...prev])
-    setCart([])
-    if (user) {
-      setUserCarts((all) => ({ ...all, [user.id]: [] }))
+    try {
+      const [savedSale, savedFee, savedOrder] = await Promise.all([
+        api.createTransaction(saleTxn),
+        api.createTransaction(feeTxn),
+        api.createOrder(order),
+      ])
+
+      setTxns((prev) => [savedSale, savedFee, ...prev])
+      setOrders((prev) => [savedOrder, ...prev])
+      setCart([])
+      if (user) {
+        setUserCarts((all) => ({ ...all, [user.id]: [] }))
+      }
+      return { id: savedOrder.id, pin: savedOrder.pin }
+    } catch (err: any) {
+      setError(`Erro ao finalizar pedido na API: ${err.message}`)
+      throw err
     }
-    return { id, pin }
   }
 
   const value: Store = {
     role,
     setRole,
     user,
+    users,
     login,
     logout,
+    isLoading,
+    error,
+    refetch: loadData,
+    clearError,
     offerDeadline,
     setOfferDeadline,
     products,
@@ -419,4 +601,3 @@ export function AppStore({ children }: { children: ReactNode }) {
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
-

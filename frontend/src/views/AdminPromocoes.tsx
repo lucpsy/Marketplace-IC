@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useStore } from "@/lib/store"
 import { brl, type Promotion, type Coupon } from "@/lib/data"
-import { Field } from "@/components/Shared"
+import { Field, LoadingState, ErrorState } from "@/components/Shared"
 import { PromoBanner } from "@/components/PromoBanner"
 
 const ACCENTS = ["#22e0ee", "#a78bfa", "#f472b6", "#f59e0b", "#34d399"]
@@ -40,6 +40,9 @@ export function AdminPromocoes() {
     coupons,
     addCoupon,
     removeCoupon,
+    isLoading,
+    error,
+    refetch,
   } = useStore()
 
   const [activeTab, setActiveTab] = useState<"promos" | "coupons">("promos")
@@ -137,7 +140,15 @@ export function AdminPromocoes() {
         </div>
       </div>
 
-      {/* ========================================================================= */}
+      {isLoading && <LoadingState message="Carregando promoções e cupons da API..." />}
+
+      {error && !isLoading && (
+        <ErrorState message={error} onRetry={refetch} />
+      )}
+
+      {!isLoading && !error && (
+        <>
+          {/* ========================================================================= */}
       {/* TAB 1: CAMPANHAS PROMOCIONAIS */}
       {/* ========================================================================= */}
       {activeTab === "promos" && (
@@ -539,6 +550,8 @@ export function AdminPromocoes() {
             ))}
           </div>
         </div>
+      )}
+      </>
       )}
     </section>
   )

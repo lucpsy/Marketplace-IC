@@ -52,10 +52,11 @@ export function CartDrawer() {
     setCoupon(found)
   }
 
-  function pay() {
+  async function pay() {
     setStep("processing")
-    window.setTimeout(() => {
-      const res = checkout({
+    setError("")
+    try {
+      const res = await checkout({
         items: cart,
         total,
         method: payMethod,
@@ -63,7 +64,10 @@ export function CartDrawer() {
       })
       setPlaced(res)
       setStep("done")
-    }, 1900)
+    } catch (err: any) {
+      setStep("cart")
+      setError(err?.message || "Erro ao realizar checkout na API.")
+    }
   }
 
   function reset() {

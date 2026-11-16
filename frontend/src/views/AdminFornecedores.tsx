@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useStore } from "@/lib/store"
 import { DEFAULT_PREPARATION_FLOW, type Supplier } from "@/lib/data"
 import { OrderStepper } from "@/components/OrderStepper"
-import { StatusPill } from "@/components/Shared"
+import { StatusPill, LoadingState, ErrorState } from "@/components/Shared"
 
 const FLOW_PRESETS: { name: string; stages: string[] }[] = [
   {
@@ -73,6 +73,9 @@ export function AdminFornecedores() {
     removeSupplier,
     updateSupplierStage,
     updateFulfillmentStatus,
+    isLoading,
+    error,
+    refetch,
   } = useStore()
 
   const [draft, setDraft] = useState<Supplier | null>(null)
@@ -145,7 +148,15 @@ export function AdminFornecedores() {
         )}
       </div>
 
-      {/* Stats Cards */}
+      {isLoading && <LoadingState message="Carregando fornecedores da API..." />}
+
+      {error && !isLoading && (
+        <ErrorState message={error} onRetry={refetch} />
+      )}
+
+      {!isLoading && !error && (
+        <>
+          {/* Stats Cards */}
       <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div className="rounded-2xl border border-line bg-panel p-4">
           <p className="label text-muted">Fornecedores Cadastrados</p>
@@ -473,6 +484,8 @@ export function AdminFornecedores() {
           )
         })}
       </div>
+      </>
+      )}
     </section>
   )
 }

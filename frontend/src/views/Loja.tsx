@@ -3,9 +3,10 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { ProductCard } from "@/components/ProductCard";
 import { PromoBanner } from "@/components/PromoBanner";
+import { LoadingState, ErrorState } from "@/components/Shared";
 
 export function Loja() {
-  const { products, promotions, addToCart } = useStore();
+  const { products, promotions, addToCart, isLoading, error, refetch } = useStore();
 
   const categories = [
     "Tudo",
@@ -37,40 +38,56 @@ export function Loja() {
         </p>
       </div>
 
-      {activePromos.length > 0 && (
-        <div className="mt-8 space-y-3">
-          {activePromos.map((p) => (
-            <PromoBanner key={p.id} promo={p} />
-          ))}
-        </div>
+      {isLoading && <LoadingState message="Carregando produtos da API..." />}
+
+      {error && !isLoading && (
+        <ErrorState message={error} onRetry={refetch} />
       )}
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        {categories.map((c) => (
-          <button
-            key={c}
-            onClick={() => setCat(c)}
-            className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
-              cat === c
-                ? "border-cyan bg-cyan/10 text-cyan"
-                : "border-line text-muted hover:text-fg"
-            }`}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
+      {!isLoading && !error && (
+        <>
+          {activePromos.length > 0 && (
+            <div className="mt-8 space-y-3">
+              {activePromos.map((p) => (
+                <PromoBanner key={p.id} promo={p} />
+              ))}
+            </div>
+          )}
 
-      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {list.map((p) => (
-          <ProductCard
-            key={p.id}
-            product={p}
-            promotions={promotions}
-            onAdd={addToCart}
-          />
-        ))}
-      </div>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCat(c)}
+                className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
+                  cat === c
+                    ? "border-cyan bg-cyan/10 text-cyan"
+                    : "border-line text-muted hover:text-fg"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+
+          {list.length === 0 ? (
+            <div className="mt-12 rounded-2xl border border-dashed border-line py-16 text-center text-muted">
+              Nenhum produto cadastrado nesta categoria.
+            </div>
+          ) : (
+            <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {list.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  promotions={promotions}
+                  onAdd={addToCart}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 }

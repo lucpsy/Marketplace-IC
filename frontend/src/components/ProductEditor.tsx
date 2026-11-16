@@ -37,8 +37,8 @@ export function AdminProductCard({
   onRemove,
 }: {
   product: Product;
-  onSave: (p: Product) => void;
-  onRemove: (id: string) => void;
+  onSave: (p: Product) => Promise<any> | void;
+  onRemove: (id: string) => Promise<any> | void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(product);
@@ -118,7 +118,11 @@ export function AdminProductCard({
 }
 
 // Card para adicionar um novo produto (modo admin).
-export function AddProductCard({ onAdd }: { onAdd: (p: Product) => void }) {
+export function AddProductCard({
+  onAdd,
+}: {
+  onAdd: (p: Product) => Promise<any> | void;
+}) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Product>(BLANK);
 
