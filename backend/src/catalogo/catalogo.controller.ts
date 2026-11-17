@@ -1,34 +1,93 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+} from '@nestjs/common';
 import { CatalogoService } from './catalogo.service';
-import { CreateCatalogoDto } from './dto/create-catalogo.dto';
-import { UpdateCatalogoDto } from './dto/update-catalogo.dto';
+import { CreateProdutoDto } from './dto/create-produto.dto';
+import { UpdateProdutoDto } from './dto/update-produto.dto';
+import { CreateCategoriaDto, UpdateCategoriaDto } from './dto/create-categoria.dto';
+import { Public } from '../auth/decorators/public.decorator';
+import { Admin } from '../auth/decorators/role.decorator';
 
 @Controller('catalogo')
 export class CatalogoController {
   constructor(private readonly catalogoService: CatalogoService) {}
 
-  @Post()
-  create(@Body() createCatalogoDto: CreateCatalogoDto) {
-    return this.catalogoService.create(createCatalogoDto);
+  /* -------------------------------------------------------- PRODUTOS */
+
+  @Public()
+  @Get('produtos')
+  findAllProdutos(
+    @Query('categoriaId') categoriaId?: string,
+    @Query('fornecedorId') fornecedorId?: string,
+    @Query('busca') busca?: string,
+  ) {
+    return this.catalogoService.findAllProdutos({
+      categoriaId,
+      fornecedorId,
+      busca,
+    });
   }
 
-  @Get()
-  findAll() {
-    return this.catalogoService.findAll();
+  @Public()
+  @Get('produtos/:id')
+  findOneProduto(@Param('id') id: string) {
+    return this.catalogoService.findOneProduto(id);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.catalogoService.findOne(+id);
+  @Admin()
+  @Post('produtos')
+  createProduto(@Body() dto: CreateProdutoDto) {
+    return this.catalogoService.createProduto(dto);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCatalogoDto: UpdateCatalogoDto) {
-    return this.catalogoService.update(+id, updateCatalogoDto);
+  @Admin()
+  @Patch('produtos/:id')
+  updateProduto(@Param('id') id: string, @Body() dto: UpdateProdutoDto) {
+    return this.catalogoService.updateProduto(id, dto);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.catalogoService.remove(+id);
+  @Admin()
+  @Delete('produtos/:id')
+  removeProduto(@Param('id') id: string) {
+    return this.catalogoService.removeProduto(id);
+  }
+
+  /* -------------------------------------------------------- CATEGORIAS */
+
+  @Public()
+  @Get('categorias')
+  findAllCategorias() {
+    return this.catalogoService.findAllCategorias();
+  }
+
+  @Public()
+  @Get('categorias/:id')
+  findOneCategoria(@Param('id') id: string) {
+    return this.catalogoService.findOneCategoria(id);
+  }
+
+  @Admin()
+  @Post('categorias')
+  createCategoria(@Body() dto: CreateCategoriaDto) {
+    return this.catalogoService.createCategoria(dto);
+  }
+
+  @Admin()
+  @Patch('categorias/:id')
+  updateCategoria(@Param('id') id: string, @Body() dto: UpdateCategoriaDto) {
+    return this.catalogoService.updateCategoria(id, dto);
+  }
+
+  @Admin()
+  @Delete('categorias/:id')
+  removeCategoria(@Param('id') id: string) {
+    return this.catalogoService.removeCategoria(id);
   }
 }

@@ -56,7 +56,7 @@ __decorate([
     __metadata("design:type", Date)
 ], Usuario.prototype, "dataAtualizacao", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "varchar", length: 20, nullable: true }),
+    (0, typeorm_1.Column)({ type: "varchar", length: 20, default: 'cliente' }),
     __metadata("design:type", String)
 ], Usuario.prototype, "cargo", void 0);
 __decorate([

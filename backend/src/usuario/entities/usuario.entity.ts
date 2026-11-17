@@ -42,7 +42,7 @@ export class Usuario {
   @Column({ type: "timestamp", name: "data_atualizacao", nullable: true })
   dataAtualizacao: Date;
 
-  @Column({ type: "varchar", length: 20, nullable: true })
+  @Column({ type: "varchar", length: 20, default: 'cliente' })
   cargo: string;
 
   @OneToMany(() => Auditoria, (auditoria) => auditoria.usuario)

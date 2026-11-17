@@ -18,6 +18,9 @@ const fornecedor_module_1 = require("./fornecedor/fornecedor.module");
 const catalogo_module_1 = require("./catalogo/catalogo.module");
 const carrinho_module_1 = require("./carrinho/carrinho.module");
 const auditoria_module_1 = require("./auditoria/auditoria.module");
+const core_1 = require("@nestjs/core");
+const jwt_auth_guard_1 = require("./auth/guards/jwt.auth.guard");
+const auth_module_1 = require("./auth/auth.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -43,7 +46,14 @@ exports.AppModule = AppModule = __decorate([
             catalogo_module_1.CatalogoModule,
             carrinho_module_1.CarrinhoModule,
             auditoria_module_1.AuditoriaModule,
+            auth_module_1.AuthModule,
         ],
+        providers: [
+            {
+                provide: core_1.APP_GUARD,
+                useClass: jwt_auth_guard_1.JwtAuthGuard,
+            },
+        ]
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map
