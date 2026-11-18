@@ -42,7 +42,7 @@ type Store = {
   setRole: (r: Role) => void
   user: MockUser | null
   users: MockUser[]
-  login: (email: string, password?: string, forceRole?: Role) => boolean
+  login: (email: string, password?: string, forceRole?: Role) => Promise<boolean>
   logout: () => void
 
   // Estados de Carregamento e Erro
@@ -134,13 +134,28 @@ export function AppStore({ children }: { children: ReactNode }) {
         remoteTxns,
         remoteUsers,
       ] = await Promise.all([
-        api.getProducts(),
-        api.getSuppliers(),
-        api.getPromotions(),
-        api.getCoupons(),
-        api.getOrders(),
-        api.getTransactions(),
-        api.getUsers().catch(() => []),
+        api.getProducts().catch((err) => {
+          console.warn("[AppStore] Falha ao carregar produtos:", err)
+          return [] as Product[]
+        }),
+        api.getSuppliers().catch((err) => {
+          console.warn("[AppStore] Falha ao carregar fornecedores:", err)
+          return [] as Supplier[]
+        }),
+        api.getPromotions().catch((err) => {
+          console.warn("[AppStore] Falha ao carregar promoções:", err)
+          return [] as Promotion[]
+        }),
+        api.getCoupons().catch(() => [] as Coupon[]),
+        api.getOrders().catch((err) => {
+          console.warn("[AppStore] Falha ao carregar pedidos:", err)
+          return [] as Order[]
+        }),
+        api.getTransactions().catch((err) => {
+          console.warn("[AppStore] Falha ao carregar transações:", err)
+          return [] as Txn[]
+        }),
+        api.getUsers().catch(() => [] as MockUser[]),
       ])
 
       setProducts(remoteProducts)
@@ -154,14 +169,39 @@ export function AppStore({ children }: { children: ReactNode }) {
       console.error("[AppStore] Erro ao carregar dados da API:", err)
       setError(
         err?.message ||
-          "Não foi possível conectar à API. Verifique se o JSON Server ou NestJS está rodando em http://localhost:3001.",
+          "Não foi possível conectar à API NestJS em http://localhost:3001/api.",
       )
     } finally {
       setIsLoading(false)
     }
   }
 
+  // Restaura sessão existente a partir do token JWT salvo
   useEffect(() => {
+    const token = api.getToken()
+    if (token) {
+      api
+        .getProfile()
+        .then((profile) => {
+          if (profile) {
+            const restoredUser: MockUser = {
+              id: String(profile.idUsuario),
+              name: profile.nome,
+              email: profile.email,
+              role: (profile.cargo as Role) || "cliente",
+              courseOrDept:
+                profile.cargo === "admin"
+                  ? "Diretoria DIACOM"
+                  : "Instituto de Computação",
+            }
+            setUser(restoredUser)
+            setRoleState(restoredUser.role)
+          }
+        })
+        .catch(() => {
+          api.removeToken()
+        })
+    }
     loadData()
   }, [])
 
@@ -179,35 +219,51 @@ export function AppStore({ children }: { children: ReactNode }) {
     }
   }
 
-  function login(email: string, _password?: string, forceRole?: Role): boolean {
+  async function login(email: string, password?: string, forceRole?: Role): Promise<boolean> {
     const cleanEmail = email.trim().toLowerCase()
-    const targetRole = forceRole || (cleanEmail.includes("admin") ? "admin" : "cliente")
-    const found = users.find(
-      (u) => u.email.toLowerCase() === cleanEmail || u.role === targetRole,
-    )
-
-    let authenticatedUser: MockUser
-    if (found) {
-      authenticatedUser = found
-      setUser(found)
-      setRoleState(found.role)
-    } else {
-      authenticatedUser = {
-        id: `u-${Date.now()}`,
-        name: cleanEmail.split("@")[0] || "Usuário",
+    try {
+      await api.login({
         email: cleanEmail,
-        role: targetRole,
-        courseOrDept: targetRole === "admin" ? "Diretoria DIACOM" : "Instituto de Computação",
-      }
-      setUser(authenticatedUser)
-      setRoleState(targetRole)
-    }
+        senha: password || "",
+      })
 
-    setCart(userCarts[authenticatedUser.id] ?? [])
-    return true
+      let authenticatedUser: MockUser
+      try {
+        const profile = await api.getProfile()
+        authenticatedUser = {
+          id: String(profile.idUsuario),
+          name: profile.nome,
+          email: profile.email,
+          role: (profile.cargo as Role) || "cliente",
+          courseOrDept:
+            profile.cargo === "admin"
+              ? "Diretoria DIACOM"
+              : "Instituto de Computação",
+        }
+      } catch {
+        const targetRole = forceRole || (cleanEmail.includes("admin") ? "admin" : "cliente")
+        authenticatedUser = {
+          id: `u-${Date.now()}`,
+          name: cleanEmail.split("@")[0] || "Usuário",
+          email: cleanEmail,
+          role: targetRole,
+          courseOrDept:
+            targetRole === "admin" ? "Diretoria DIACOM" : "Instituto de Computação",
+        }
+      }
+
+      setUser(authenticatedUser)
+      setRoleState(authenticatedUser.role)
+      setCart(userCarts[authenticatedUser.id] ?? [])
+      return true
+    } catch (err: any) {
+      console.error("[AppStore] Erro ao autenticar na API:", err)
+      throw err
+    }
   }
 
   function logout() {
+    api.removeToken()
     setUser(null)
     setRoleState("cliente")
     setCart([])

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
+import { api } from "@/services/api";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -25,7 +26,7 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
       setFeedback({ type: "error", message: "Informe seu nome completo." });
@@ -35,10 +36,10 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
       setFeedback({ type: "error", message: "Informe um e-mail válido." });
       return;
     }
-    if (password.length < 6) {
+    if (password.length < 8) {
       setFeedback({
         type: "error",
-        message: "A senha deve ter ao menos 6 caracteres.",
+        message: "A senha deve ter ao menos 8 caracteres.",
       });
       return;
     }
@@ -50,15 +51,26 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
     setIsLoading(true);
     setFeedback(null);
 
-    // Simula chamada de API
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await api.register({
+        nome: name.trim(),
+        email: email.trim().toLowerCase(),
+        senha: password,
+      });
+
       setFeedback({
         type: "success",
         message: "Conta criada com sucesso! Você já pode fazer login.",
       });
       setTimeout(onCancel, 1500);
-    }, 800);
+    } catch (err: any) {
+      setFeedback({
+        type: "error",
+        message: err?.message || "Erro ao cadastrar conta na API.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -140,7 +152,7 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
             type={showPass ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Mínimo 6 caracteres"
+            placeholder="Mínimo 8 caracteres"
             required
             className="mt-1 w-full rounded-xl border border-line bg-ink px-3.5 py-2.5 font-mono text-sm text-fg outline-none transition-colors placeholder:text-muted/40 focus:border-cyan"
           />
@@ -217,7 +229,7 @@ export function LoginView() {
     return found?.role ?? "cliente";
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) {
       setFeedback({
@@ -230,14 +242,21 @@ export function LoginView() {
       setFeedback({ type: "error", message: "Informe sua senha." });
       return;
     }
+    if (password.length < 8) {
+      setFeedback({
+        type: "error",
+        message: "A senha deve ter ao menos 8 caracteres.",
+      });
+      return;
+    }
 
     setIsLoading(true);
     setFeedback(null);
 
     const role = resolveRole(email);
 
-    setTimeout(() => {
-      login(email, password, role);
+    try {
+      await login(email, password, role);
       setIsLoading(false);
       setFeedback({
         type: "success",
@@ -246,7 +265,13 @@ export function LoginView() {
       setTimeout(() => {
         router.push(role === "admin" ? "/admin/loja" : redirectPath);
       }, 700);
-    }, 600);
+    } catch (err: any) {
+      setIsLoading(false);
+      setFeedback({
+        type: "error",
+        message: err?.message || "Erro de autenticação na API. Verifique seu e-mail e senha.",
+      });
+    }
   }
 
   if (showRegister) {
@@ -446,7 +471,7 @@ export function LoginView() {
                     className="cursor-pointer transition-colors hover:text-cyan"
                     onClick={() => {
                       setEmail(u.email);
-                      setPassword("123456");
+                      setPassword("12345678");
                       setFeedback(null);
                     }}
                     title="Clique para preencher"
@@ -455,7 +480,7 @@ export function LoginView() {
                       {u.role}
                     </td>
                     <td className="py-0.5 pr-3 text-fg/80">{u.email}</td>
-                    <td className="py-0.5 text-muted/70">123456</td>
+                    <td className="py-0.5 text-muted/70">12345678</td>
                   </tr>
                 ))}
               </tbody>

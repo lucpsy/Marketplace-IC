@@ -327,6 +327,26 @@
       "method": "Cartão",
       "amount": 108,
       "status": "Concluído"
+    },
+    {
+      "id": "#DC-6137-v",
+      "date": "2026-11-17",
+      "order": "#DC-6137",
+      "description": "Venda — Camisa DIACOM 2026 (1un), Testando outra coisa (1un), Caneca \"Compila na Primeira\" (1un)",
+      "category": "Vendas",
+      "method": "Pix",
+      "amount": 190.75,
+      "status": "Concluído"
+    },
+    {
+      "id": "#DC-6137-t",
+      "date": "2026-11-17",
+      "order": "#DC-6137",
+      "description": "Taxa de processamento Pix",
+      "category": "Taxa",
+      "method": "Pix",
+      "amount": -1.91,
+      "status": "Concluído"
     }
   ],
   "orders": [
@@ -404,6 +424,44 @@
             }
           ],
           "status": "Entregue"
+        }
+      ]
+    },
+    {
+      "id": "#DC-6137",
+      "date": "2026-11-17",
+      "buyer": "Lucas Tenório",
+      "buyerId": "u-cliente",
+      "total": 190.75,
+      "method": "Pix",
+      "pin": "6975",
+      "fulfillments": [
+        {
+          "supplierId": "confeccoes-ic",
+          "items": [
+            {
+              "productId": "teste do fakeapi",
+              "name": "Camisa DIACOM 2026",
+              "qty": 1
+            },
+            {
+              "productId": "moletom-ic",
+              "name": "Testando outra coisa",
+              "qty": 1
+            }
+          ],
+          "status": "Confirmado"
+        },
+        {
+          "supplierId": "brindes-ufal",
+          "items": [
+            {
+              "productId": "caneca-compila",
+              "name": "Caneca \"Compila na Primeira\"",
+              "qty": 1
+            }
+          ],
+          "status": "Confirmado"
         }
       ]
     }

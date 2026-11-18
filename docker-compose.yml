@@ -15,42 +15,28 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # Backend Original. Documentei pq estou usando o fakeapi para simular a API.
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-
-  #   container_name: marketplace-backend
-  #   restart: unless-stopped
-
-  #   ports:
-  #     - "3001:3000"
-
-  #   environment:
-  #     DATABASE_URL: postgresql://marketplace:marketplace@postgres:5432/marketplace
-
-  #   volumes:
-  #     - ./backend:/app
-  #     - /app/node_modules
-
-  #   command: npm run start:dev
-
-  #   depends_on:
-  #     - postgres
-
-  # Backend Fake API. Apague isso no futuro.
   backend:
-    image: node:20-alpine
-    working_dir: /app
-    container_name: marketplace-fake-api
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: marketplace-backend
     restart: unless-stopped
+
     ports:
-      - "3001:3001"
+      - "3001:3000"
+
+    environment:
+      DATABASE_URL: postgresql://marketplace:marketplace@postgres:5432/marketplace
+
     volumes:
-      - ./fake-api:/app
+      - ./backend:/app
       - /app/node_modules
-    command: sh -c "npm install && npm start"
+
+    command: npm run start:dev
+
+    depends_on:
+      - postgres
 
   frontend:
     build:
@@ -64,7 +50,7 @@ services:
       - "3000:3000"
 
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api
 
     volumes:
       - ./frontend:/app

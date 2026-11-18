@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schemastore.org",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src",
+  "entryFile": "/main",
+  "compilerOptions": {
+    "deleteOutDir": true
+  }
+}

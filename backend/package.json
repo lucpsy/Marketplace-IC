@@ -8,7 +8,11 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main"
+    "start:prod": "node dist/main",
+    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
+    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
+    "migration:show": "typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts",
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -19,14 +23,11 @@
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/swagger": "^11.0.0",
     "@nestjs/typeorm": "^11.0.0",
-
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
-
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.0",
-
     "pg": "^8.0.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.0.0",
@@ -37,8 +38,9 @@
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.0",
     "@types/bcrypt": "^6.0.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.20.5",
     "@types/passport-jwt": "^4.0.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.0.0"
   }
 }
