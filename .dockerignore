@@ -1,0 +1,24 @@
+# Dependências e caches
+node_modules/
+*/node_modules/
+.next/
+*/.next/
+dist/
+*/dist/
+
+# Controle de versão e IDEs
+.git
+.gitignore
+.vscode/
+.idea/
+
+# Variáveis de ambiente
+.env
+.env.*
+*.env
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

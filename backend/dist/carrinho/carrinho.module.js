@@ -8,13 +8,17 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CarrinhoModule = void 0;
 const common_1 = require("@nestjs/common");
+const typeorm_1 = require("@nestjs/typeorm");
 const carrinho_service_1 = require("./carrinho.service");
 const carrinho_controller_1 = require("./carrinho.controller");
+const carrinho_entity_1 = require("./entities/carrinho.entity");
+const carrinho_item_entity_1 = require("./entities/carrinho-item.entity");
 let CarrinhoModule = class CarrinhoModule {
 };
 exports.CarrinhoModule = CarrinhoModule;
 exports.CarrinhoModule = CarrinhoModule = __decorate([
     (0, common_1.Module)({
+        imports: [typeorm_1.TypeOrmModule.forFeature([carrinho_entity_1.Carrinho, carrinho_item_entity_1.CarrinhoItem])],
         controllers: [carrinho_controller_1.CarrinhoController],
         providers: [carrinho_service_1.CarrinhoService],
     })
