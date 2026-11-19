@@ -1,26 +1,356 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { Pedido } from './entities/pedido.entity';
+import { ItemPedido } from './entities/item_pedido.entity';
+import { StatusPedido } from './entities/status_pedido.entity';
+import { TransicaoStatus } from './entities/transicao-status.entity';
+import { HistoricoStatus } from './entities/historico-status.entity';
+import { Carrinho } from '../carrinho/entities/carrinho.entity';
+import { CarrinhoItem } from '../carrinho/entities/carrinho-item.entity';
+import { Produto } from '../catalogo/entities/produto.entity';
+import { Usuario } from '../usuario/entities/usuario.entity';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
-import { UpdatePedidoDto } from './dto/update-pedido.dto';
+import { UpdateStatusPedidoDto } from './dto/update-status-pedido.dto';
+import { seedStatusPedido } from '../database/seeds/seed-status-pedido';
 
 @Injectable()
-export class PedidoService {
-  create(createPedidoDto: CreatePedidoDto) {
-    return 'This action adds a new pedido';
+export class PedidoService implements OnModuleInit {
+  constructor(
+    private readonly dataSource: DataSource,
+
+    @InjectRepository(Pedido)
+    private readonly pedidoRepo: Repository<Pedido>,
+
+    @InjectRepository(StatusPedido)
+    private readonly statusRepo: Repository<StatusPedido>,
+
+    @InjectRepository(TransicaoStatus)
+    private readonly transicaoRepo: Repository<TransicaoStatus>,
+
+    @InjectRepository(Carrinho)
+    private readonly carrinhoRepo: Repository<Carrinho>,
+
+    @InjectRepository(Usuario)
+    private readonly usuarioRepo: Repository<Usuario>,
+  ) {}
+
+  async onModuleInit() {
+    await seedStatusPedido(this.statusRepo, this.transicaoRepo);
   }
 
-  findAll() {
-    return `This action returns all pedido`;
+  /* -------------------------------------------------------- STATUS */
+
+  async listarStatus(): Promise<StatusPedido[]> {
+    return this.statusRepo.find({
+      where: { ativo: true },
+      order: { ordem: 'ASC' },
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} pedido`;
+  async listarTransicoesPermitidas(idStatus: string): Promise<StatusPedido[]> {
+    const transicoes = await this.transicaoRepo.find({
+      where: {
+        statusOrigem: { idStatus },
+        permitido: true,
+      },
+      relations: ['statusDestino'],
+    });
+
+    return transicoes
+      .map((t) => t.statusDestino)
+      .filter((s) => s.ativo)
+      .sort((a, b) => a.ordem - b.ordem);
   }
 
-  update(id: number, updatePedidoDto: UpdatePedidoDto) {
-    return `This action updates a #${id} pedido`;
+  /* -------------------------------------------------------- FECHAMENTO */
+
+  async criarDoCarrinho(usuarioId: string, dto: CreatePedidoDto) {
+    const carrinho = await this.carrinhoRepo.findOne({
+      where: { usuario: { idUsuario: usuarioId } },
+      relations: ['usuario', 'itens', 'itens.produto'],
+    });
+
+    if (!carrinho || !carrinho.itens || carrinho.itens.length === 0) {
+      throw new BadRequestException(
+        'Não é possível finalizar o pedido: o carrinho está vazio',
+      );
+    }
+
+    for (const item of carrinho.itens) {
+      if (!item.produto || item.produto.status !== 'ativo') {
+        throw new BadRequestException(
+          `Produto "${item.produto?.nome ?? item.idCarrinhoItem}" não está mais disponível`,
+        );
+      }
+      if (item.quantidade > item.produto.estoque) {
+        throw new BadRequestException(
+          `Estoque insuficiente para "${item.produto.nome}". Disponível: ${item.produto.estoque}`,
+        );
+      }
+    }
+
+    const statusInicial = await this.statusRepo.findOneBy({
+      nome: 'Confirmado',
+    });
+
+    if (!statusInicial) {
+      throw new NotFoundException('Status inicial "Confirmado" não configurado');
+    }
+
+    const subtotal = carrinho.itens.reduce(
+      (acc, item) => acc + Number(item.produto.precoVenda) * item.quantidade,
+      0,
+    );
+    const valorDesconto = dto.valorDesconto ?? 0;
+    const frete = dto.frete ?? 0;
+    const valorTotal = Math.max(0, subtotal - valorDesconto + frete);
+
+    const idPedidoCriado = await this.dataSource.transaction(async (manager) => {
+      const pedido = manager.create(Pedido, {
+        usuario: carrinho.usuario,
+        status: statusInicial,
+        subtotal: subtotal.toFixed(2),
+        valorDesconto: valorDesconto.toFixed(2),
+        frete: frete.toFixed(2),
+        valorTotal: valorTotal.toFixed(2),
+        observacao: dto.observacao ?? null,
+      });
+
+      const pedidoSalvo = await manager.save(Pedido, pedido);
+
+      const itensPedido = carrinho.itens.map((item) => {
+        const precoUnit = Number(item.produto.precoVenda);
+        const totalItem = precoUnit * item.quantidade;
+
+        return manager.create(ItemPedido, {
+          pedido: pedidoSalvo,
+          produto: item.produto,
+          nomeProdutoSnapshot: item.produto.nome,
+          skuSnapshot: item.produto.sku ?? null,
+          quantidade: item.quantidade,
+          precoUnitarioSnapshot: precoUnit.toFixed(2),
+          desconto: '0.00',
+          valorTotal: totalItem.toFixed(2),
+        });
+      });
+
+      await manager.save(ItemPedido, itensPedido);
+
+      // Baixa de estoque dos produtos comprados
+      for (const item of carrinho.itens) {
+        await manager.decrement(
+          Produto,
+          { idProduto: item.produto.idProduto },
+          'estoque',
+          item.quantidade,
+        );
+      }
+
+      // Histórico inicial
+      const historicoInicial = manager.create(HistoricoStatus, {
+        pedido: pedidoSalvo,
+        status: statusInicial,
+        usuarioResponsavel: carrinho.usuario,
+        observacao: 'Pedido confirmado a partir do carrinho',
+      });
+      await manager.save(HistoricoStatus, historicoInicial);
+
+      // Esvazia o carrinho do usuário
+      await manager.delete(CarrinhoItem, {
+        carrinho: { idCarrinho: carrinho.idCarrinho },
+      });
+
+      return pedidoSalvo.idPedido;
+    });
+
+    return this.findOne(idPedidoCriado, usuarioId, true);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} pedido`;
+  /* -------------------------------------------------------- CONSULTAS */
+
+  async findMeusPedidos(usuarioId: string): Promise<Pedido[]> {
+    return this.pedidoRepo.find({
+      where: { usuario: { idUsuario: usuarioId } },
+      relations: [
+        'status',
+        'itens',
+        'itens.produto',
+        'itens.produto.imagens',
+        'itens.produto.fornecedor',
+        'historicoStatus',
+        'historicoStatus.status',
+      ],
+      order: {
+        dataPedido: 'DESC',
+        historicoStatus: {
+          dataHora: 'ASC',
+        },
+      },
+    });
+  }
+
+  async findAll(filtros?: {
+    statusId?: string;
+    usuarioId?: string;
+  }): Promise<Pedido[]> {
+    const qb = this.pedidoRepo
+      .createQueryBuilder('pedido')
+      .leftJoinAndSelect('pedido.usuario', 'usuario')
+      .leftJoinAndSelect('pedido.status', 'status')
+      .leftJoinAndSelect('pedido.itens', 'itens')
+      .leftJoinAndSelect('itens.produto', 'produto')
+      .leftJoinAndSelect('pedido.historicoStatus', 'historico')
+      .leftJoinAndSelect('historico.status', 'historicoStatus')
+      .orderBy('pedido.dataPedido', 'DESC')
+      .addOrderBy('historico.dataHora', 'ASC');
+
+    if (filtros?.statusId) {
+      qb.andWhere('status.idStatus = :statusId', {
+        statusId: filtros.statusId,
+      });
+    }
+
+    if (filtros?.usuarioId) {
+      qb.andWhere('usuario.idUsuario = :usuarioId', {
+        usuarioId: filtros.usuarioId,
+      });
+    }
+
+    return qb.getMany();
+  }
+
+  async findOne(
+    idPedido: string,
+    usuarioId: string,
+    isAdmin: boolean,
+  ): Promise<Pedido> {
+    const pedido = await this.pedidoRepo.findOne({
+      where: { idPedido },
+      relations: [
+        'usuario',
+        'status',
+        'itens',
+        'itens.produto',
+        'itens.produto.imagens',
+        'itens.produto.fornecedor',
+        'historicoStatus',
+        'historicoStatus.status',
+        'historicoStatus.usuarioResponsavel',
+      ],
+      order: {
+        historicoStatus: {
+          dataHora: 'ASC',
+        },
+      },
+    });
+
+    if (!pedido) {
+      throw new NotFoundException(`Pedido #${idPedido} não encontrado`);
+    }
+
+    if (!isAdmin && pedido.usuario.idUsuario !== usuarioId) {
+      throw new ForbiddenException('Você não tem permissão para acessar este pedido');
+    }
+
+    return pedido;
+  }
+
+  /* -------------------------------------------------------- TRANSIÇÃO DE STATUS */
+
+  async atualizarStatus(
+    idPedido: string,
+    dto: UpdateStatusPedidoDto,
+    responsavelId: string,
+  ): Promise<Pedido> {
+    if (!dto.idStatus && !dto.nomeStatus) {
+      throw new BadRequestException(
+        'Informe idStatus ou nomeStatus para atualizar o status do pedido',
+      );
+    }
+
+    const pedido = await this.pedidoRepo.findOne({
+      where: { idPedido },
+      relations: ['status', 'itens', 'itens.produto'],
+    });
+
+    if (!pedido) {
+      throw new NotFoundException(`Pedido #${idPedido} não encontrado`);
+    }
+
+    if (pedido.status?.statusFinal) {
+      throw new BadRequestException(
+        `O pedido #${idPedido} já está no status final "${pedido.status.nome}" e não pode ser alterado`,
+      );
+    }
+
+    const statusDestino = dto.idStatus
+      ? await this.statusRepo.findOneBy({ idStatus: dto.idStatus })
+      : await this.statusRepo.findOneBy({ nome: dto.nomeStatus });
+
+    if (!statusDestino || !statusDestino.ativo) {
+      throw new NotFoundException('Status de destino não encontrado ou inativo');
+    }
+
+    if (pedido.status) {
+      if (pedido.status.idStatus === statusDestino.idStatus) {
+        throw new BadRequestException(
+          `O pedido já se encontra no status "${statusDestino.nome}"`,
+        );
+      }
+
+      const transicao = await this.transicaoRepo.findOne({
+        where: {
+          statusOrigem: { idStatus: pedido.status.idStatus },
+          statusDestino: { idStatus: statusDestino.idStatus },
+          permitido: true,
+        },
+      });
+
+      if (!transicao) {
+        throw new BadRequestException(
+          `Transição de "${pedido.status.nome}" para "${statusDestino.nome}" não é permitida`,
+        );
+      }
+    }
+
+    const responsavel = await this.usuarioRepo.findOneBy({
+      idUsuario: responsavelId,
+    });
+
+    await this.dataSource.transaction(async (manager) => {
+      pedido.status = statusDestino;
+      await manager.save(Pedido, pedido);
+
+      // Se o pedido foi cancelado, estorna o estoque dos produtos
+      if (statusDestino.nome === 'Cancelado') {
+        for (const item of pedido.itens) {
+          await manager.increment(
+            Produto,
+            { idProduto: item.produto.idProduto },
+            'estoque',
+            item.quantidade,
+          );
+        }
+      }
+
+      const registroHistorico = manager.create(HistoricoStatus, {
+        pedido,
+        status: statusDestino,
+        usuarioResponsavel: responsavel ?? null,
+        observacao:
+          dto.observacao ?? `Status alterado para "${statusDestino.nome}"`,
+      });
+
+      await manager.save(HistoricoStatus, registroHistorico);
+    });
+
+    return this.findOne(idPedido, responsavelId, true);
   }
 }
