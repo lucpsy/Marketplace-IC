@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CatalogoController = void 0;
 const common_1 = require("@nestjs/common");
+const jwt_1 = require("@nestjs/jwt");
 const catalogo_service_1 = require("./catalogo.service");
 const create_produto_dto_1 = require("./dto/create-produto.dto");
 const update_produto_dto_1 = require("./dto/update-produto.dto");
@@ -21,14 +22,34 @@ const create_categoria_dto_1 = require("./dto/create-categoria.dto");
 const public_decorator_1 = require("../auth/decorators/public.decorator");
 const role_decorator_1 = require("../auth/decorators/role.decorator");
 let CatalogoController = class CatalogoController {
-    constructor(catalogoService) {
+    constructor(catalogoService, jwtService) {
         this.catalogoService = catalogoService;
+        this.jwtService = jwtService;
     }
-    findAllProdutos(categoriaId, fornecedorId, busca) {
+    findAllProdutos(req, categoriaId, fornecedorId, busca, apenasAtivos) {
+        let isAdmin = req?.user?.role === 'admin';
+        if (!isAdmin) {
+            const authHeader = req.headers?.authorization;
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                const token = authHeader.substring(7);
+                try {
+                    const payload = this.jwtService.verify(token, {
+                        secret: process.env.JWT_SECRET,
+                    });
+                    if (payload?.role === 'admin') {
+                        isAdmin = true;
+                    }
+                }
+                catch {
+                }
+            }
+        }
+        const filtrarApenasAtivos = isAdmin && apenasAtivos !== undefined ? apenasAtivos === 'true' : true;
         return this.catalogoService.findAllProdutos({
             categoriaId,
             fornecedorId,
             busca,
+            apenasAtivos: filtrarApenasAtivos,
         });
     }
     findOneProduto(id) {
@@ -63,11 +84,13 @@ exports.CatalogoController = CatalogoController;
 __decorate([
     (0, public_decorator_1.Public)(),
     (0, common_1.Get)('produtos'),
-    __param(0, (0, common_1.Query)('categoriaId')),
-    __param(1, (0, common_1.Query)('fornecedorId')),
-    __param(2, (0, common_1.Query)('busca')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)('categoriaId')),
+    __param(2, (0, common_1.Query)('fornecedorId')),
+    __param(3, (0, common_1.Query)('busca')),
+    __param(4, (0, common_1.Query)('apenasAtivos')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], CatalogoController.prototype, "findAllProdutos", null);
 __decorate([
@@ -145,6 +168,7 @@ __decorate([
 ], CatalogoController.prototype, "removeCategoria", null);
 exports.CatalogoController = CatalogoController = __decorate([
     (0, common_1.Controller)('catalogo'),
-    __metadata("design:paramtypes", [catalogo_service_1.CatalogoService])
+    __metadata("design:paramtypes", [catalogo_service_1.CatalogoService,
+        jwt_1.JwtService])
 ], CatalogoController);
 //# sourceMappingURL=catalogo.controller.js.map

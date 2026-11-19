@@ -1,15 +1,20 @@
-import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Usuario } from './entities/usuario.entity';
 import { Repository } from 'typeorm';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { AdminUpdateUsuarioDto } from './dto/Admin-update-usuario.dto';
+import { seedAdmin } from '../database/seeds/seed-admin';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
-export class UsuarioService {
+export class UsuarioService implements OnModuleInit {
   constructor(@InjectRepository(Usuario) private readonly repositorioUsuario: Repository<Usuario>) { }
+
+  async onModuleInit() {
+    await seedAdmin(this.repositorioUsuario);
+  }
 
   async createUser(createUsuarioDto: CreateUsuarioDto) {
     if (await this.findOneByEmail(createUsuarioDto.email)) throw new ConflictException('Este Email já está cadastrado');

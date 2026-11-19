@@ -17,10 +17,14 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const usuario_entity_1 = require("./entities/usuario.entity");
 const typeorm_2 = require("typeorm");
+const seed_admin_1 = require("../database/seeds/seed-admin");
 const bcrypt = require("bcrypt");
 let UsuarioService = class UsuarioService {
     constructor(repositorioUsuario) {
         this.repositorioUsuario = repositorioUsuario;
+    }
+    async onModuleInit() {
+        await (0, seed_admin_1.seedAdmin)(this.repositorioUsuario);
     }
     async createUser(createUsuarioDto) {
         if (await this.findOneByEmail(createUsuarioDto.email))

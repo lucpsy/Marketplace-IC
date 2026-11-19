@@ -7,5 +7,9 @@ export class AdminUpdateUsuarioDto extends PartialType(OmitType(CreateUsuarioDto
     @IsString()
     @MinLength(8)
     senha?: string;
+
+    @IsOptional()
+    @IsString()
+    cargo?: string;
 }
 

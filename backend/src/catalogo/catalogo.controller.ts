@@ -7,7 +7,10 @@ import {
   Param,
   Delete,
   Query,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
+import { JwtService } from '@nestjs/jwt';
 import { CatalogoService } from './catalogo.service';
 import { CreateProdutoDto } from './dto/create-produto.dto';
 import { UpdateProdutoDto } from './dto/update-produto.dto';
@@ -17,21 +20,49 @@ import { Admin } from '../auth/decorators/role.decorator';
 
 @Controller('catalogo')
 export class CatalogoController {
-  constructor(private readonly catalogoService: CatalogoService) {}
+  constructor(
+    private readonly catalogoService: CatalogoService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   /* -------------------------------------------------------- PRODUTOS */
 
   @Public()
   @Get('produtos')
   findAllProdutos(
+    @Req() req: Request,
     @Query('categoriaId') categoriaId?: string,
     @Query('fornecedorId') fornecedorId?: string,
     @Query('busca') busca?: string,
+    @Query('apenasAtivos') apenasAtivos?: string,
   ) {
+    let isAdmin = (req as any)?.user?.role === 'admin';
+
+    if (!isAdmin) {
+      const authHeader = req.headers?.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        try {
+          const payload = this.jwtService.verify(token, {
+            secret: process.env.JWT_SECRET,
+          });
+          if (payload?.role === 'admin') {
+            isAdmin = true;
+          }
+        } catch {
+          // Token inválido/expirado, permanece não-admin
+        }
+      }
+    }
+
+    const filtrarApenasAtivos =
+      isAdmin && apenasAtivos !== undefined ? apenasAtivos === 'true' : true;
+
     return this.catalogoService.findAllProdutos({
       categoriaId,
       fornecedorId,
       busca,
+      apenasAtivos: filtrarApenasAtivos,
     });
   }
 

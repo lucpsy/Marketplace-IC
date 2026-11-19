@@ -1,11 +1,13 @@
+import { OnModuleInit } from '@nestjs/common';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { Usuario } from './entities/usuario.entity';
 import { Repository } from 'typeorm';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { AdminUpdateUsuarioDto } from './dto/Admin-update-usuario.dto';
-export declare class UsuarioService {
+export declare class UsuarioService implements OnModuleInit {
     private readonly repositorioUsuario;
     constructor(repositorioUsuario: Repository<Usuario>);
+    onModuleInit(): Promise<void>;
     createUser(createUsuarioDto: CreateUsuarioDto): Promise<Usuario>;
     removeUser(id: string): Promise<{
         message: string;

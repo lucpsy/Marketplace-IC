@@ -15,16 +15,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsuarioController = void 0;
 const common_1 = require("@nestjs/common");
 const usuario_service_1 = require("./usuario.service");
-const create_usuario_dto_1 = require("./dto/create-usuario.dto");
 const update_usuario_dto_1 = require("./dto/update-usuario.dto");
 const role_decorator_1 = require("../auth/decorators/role.decorator");
-const public_decorator_1 = require("../auth/decorators/public.decorator");
+const Admin_update_usuario_dto_1 = require("./dto/Admin-update-usuario.dto");
 let UsuarioController = class UsuarioController {
     constructor(usuarioService) {
         this.usuarioService = usuarioService;
-    }
-    create(dto) {
-        return this.usuarioService.createUser(dto);
     }
     updateProfile(req, dto) {
         return this.usuarioService.updateUser(req.user.id, dto);
@@ -46,14 +42,6 @@ let UsuarioController = class UsuarioController {
     }
 };
 exports.UsuarioController = UsuarioController;
-__decorate([
-    (0, public_decorator_1.Public)(),
-    (0, common_1.Post)('create'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_usuario_dto_1.CreateUsuarioDto]),
-    __metadata("design:returntype", void 0)
-], UsuarioController.prototype, "create", null);
 __decorate([
     (0, common_1.Patch)('profile'),
     __param(0, (0, common_1.Req)()),
@@ -90,7 +78,7 @@ __decorate([
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_usuario_dto_1.UpdateUsuarioDto]),
+    __metadata("design:paramtypes", [String, Admin_update_usuario_dto_1.AdminUpdateUsuarioDto]),
     __metadata("design:returntype", void 0)
 ], UsuarioController.prototype, "updateAdmin", null);
 __decorate([

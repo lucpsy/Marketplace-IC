@@ -15,64 +15,71 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CarrinhoController = void 0;
 const common_1 = require("@nestjs/common");
 const carrinho_service_1 = require("./carrinho.service");
-const create_carrinho_dto_1 = require("./dto/create-carrinho.dto");
-const update_carrinho_dto_1 = require("./dto/update-carrinho.dto");
+const add_item_carrinho_dto_1 = require("./dto/add-item-carrinho.dto");
+const update_item_carrinho_dto_1 = require("./dto/update-item-carrinho.dto");
 let CarrinhoController = class CarrinhoController {
     constructor(carrinhoService) {
         this.carrinhoService = carrinhoService;
     }
-    create(createCarrinhoDto) {
-        return this.carrinhoService.create(createCarrinhoDto);
+    getUserId(req) {
+        return req.user.id ?? req.user.sub;
     }
-    findAll() {
-        return this.carrinhoService.findAll();
+    obterCarrinho(req) {
+        return this.carrinhoService.obterCarrinho(this.getUserId(req));
     }
-    findOne(id) {
-        return this.carrinhoService.findOne(+id);
+    adicionarItem(req, dto) {
+        return this.carrinhoService.adicionarItem(this.getUserId(req), dto);
     }
-    update(id, updateCarrinhoDto) {
-        return this.carrinhoService.update(+id, updateCarrinhoDto);
+    atualizarQuantidade(req, idItem, dto) {
+        return this.carrinhoService.atualizarQuantidade(this.getUserId(req), idItem, dto);
     }
-    remove(id) {
-        return this.carrinhoService.remove(+id);
+    removerItem(req, idItem) {
+        return this.carrinhoService.removerItem(this.getUserId(req), idItem);
+    }
+    limparCarrinho(req) {
+        return this.carrinhoService.limparCarrinho(this.getUserId(req));
     }
 };
 exports.CarrinhoController = CarrinhoController;
 __decorate([
-    (0, common_1.Post)(),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_carrinho_dto_1.CreateCarrinhoDto]),
-    __metadata("design:returntype", void 0)
-], CarrinhoController.prototype, "create", null);
-__decorate([
     (0, common_1.Get)(),
+    __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
-], CarrinhoController.prototype, "findAll", null);
+], CarrinhoController.prototype, "obterCarrinho", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], CarrinhoController.prototype, "findOne", null);
-__decorate([
-    (0, common_1.Patch)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Post)('itens'),
+    __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_carrinho_dto_1.UpdateCarrinhoDto]),
+    __metadata("design:paramtypes", [Object, add_item_carrinho_dto_1.AddItemCarrinhoDto]),
     __metadata("design:returntype", void 0)
-], CarrinhoController.prototype, "update", null);
+], CarrinhoController.prototype, "adicionarItem", null);
 __decorate([
-    (0, common_1.Delete)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Patch)('itens/:idItem'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('idItem')),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String, update_item_carrinho_dto_1.UpdateItemCarrinhoDto]),
     __metadata("design:returntype", void 0)
-], CarrinhoController.prototype, "remove", null);
+], CarrinhoController.prototype, "atualizarQuantidade", null);
+__decorate([
+    (0, common_1.Delete)('itens/:idItem'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('idItem')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], CarrinhoController.prototype, "removerItem", null);
+__decorate([
+    (0, common_1.Delete)(),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], CarrinhoController.prototype, "limparCarrinho", null);
 exports.CarrinhoController = CarrinhoController = __decorate([
     (0, common_1.Controller)('carrinho'),
     __metadata("design:paramtypes", [carrinho_service_1.CarrinhoService])

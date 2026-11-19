@@ -1,11 +1,14 @@
+import { Request } from 'express';
+import { JwtService } from '@nestjs/jwt';
 import { CatalogoService } from './catalogo.service';
 import { CreateProdutoDto } from './dto/create-produto.dto';
 import { UpdateProdutoDto } from './dto/update-produto.dto';
 import { CreateCategoriaDto, UpdateCategoriaDto } from './dto/create-categoria.dto';
 export declare class CatalogoController {
     private readonly catalogoService;
-    constructor(catalogoService: CatalogoService);
-    findAllProdutos(categoriaId?: string, fornecedorId?: string, busca?: string): Promise<import("./entities/produto.entity").Produto[]>;
+    private readonly jwtService;
+    constructor(catalogoService: CatalogoService, jwtService: JwtService);
+    findAllProdutos(req: Request, categoriaId?: string, fornecedorId?: string, busca?: string, apenasAtivos?: string): Promise<import("./entities/produto.entity").Produto[]>;
     findOneProduto(id: string): Promise<import("./entities/produto.entity").Produto>;
     createProduto(dto: CreateProdutoDto): Promise<import("./entities/produto.entity").Produto>;
     updateProduto(id: string, dto: UpdateProdutoDto): Promise<import("./entities/produto.entity").Produto>;

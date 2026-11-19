@@ -1,19 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Req } from '@nestjs/common';
+import { Controller, Get, Body, Patch, Param, Delete, Req } from '@nestjs/common';
 import { UsuarioService } from './usuario.service';
-import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { Admin } from 'auth/decorators/role.decorator';
-import { Public } from 'auth/decorators/public.decorator';
+import { AdminUpdateUsuarioDto } from './dto/Admin-update-usuario.dto';
 
 @Controller('usuario')
 export class UsuarioController {
   constructor(private readonly usuarioService: UsuarioService) { }
-
-  @Public()
-  @Post('create')
-  create(@Body() dto: CreateUsuarioDto) {
-    return this.usuarioService.createUser(dto);
-  }
 
   @Patch('profile')
   updateProfile(@Req() req, @Body() dto: UpdateUsuarioDto) {
@@ -39,7 +32,7 @@ export class UsuarioController {
 
   @Admin()
   @Patch(':id')
-  updateAdmin(@Param('id') id: string, @Body() dto: UpdateUsuarioDto) {
+  updateAdmin(@Param('id') id: string, @Body() dto: AdminUpdateUsuarioDto) {
     return this.usuarioService.adminUpdateUser(id, dto);
   }
   

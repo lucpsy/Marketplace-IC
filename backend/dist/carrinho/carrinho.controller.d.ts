@@ -1,12 +1,58 @@
 import { CarrinhoService } from './carrinho.service';
-import { CreateCarrinhoDto } from './dto/create-carrinho.dto';
-import { UpdateCarrinhoDto } from './dto/update-carrinho.dto';
+import { AddItemCarrinhoDto } from './dto/add-item-carrinho.dto';
+import { UpdateItemCarrinhoDto } from './dto/update-item-carrinho.dto';
 export declare class CarrinhoController {
     private readonly carrinhoService;
     constructor(carrinhoService: CarrinhoService);
-    create(createCarrinhoDto: CreateCarrinhoDto): string;
-    findAll(): string;
-    findOne(id: string): string;
-    update(id: string, updateCarrinhoDto: UpdateCarrinhoDto): string;
-    remove(id: string): string;
+    private getUserId;
+    obterCarrinho(req: any): Promise<{
+        itens: import("./entities/carrinho-item.entity").CarrinhoItem[];
+        totalItens: number;
+        subtotal: number;
+        idCarrinho: string;
+        usuario: import("../usuario/entities/usuario.entity").Usuario;
+        status: string;
+        dataCriacao: Date;
+        dataAtualizacao: Date | null;
+    }>;
+    adicionarItem(req: any, dto: AddItemCarrinhoDto): Promise<{
+        itens: import("./entities/carrinho-item.entity").CarrinhoItem[];
+        totalItens: number;
+        subtotal: number;
+        idCarrinho: string;
+        usuario: import("../usuario/entities/usuario.entity").Usuario;
+        status: string;
+        dataCriacao: Date;
+        dataAtualizacao: Date | null;
+    }>;
+    atualizarQuantidade(req: any, idItem: string, dto: UpdateItemCarrinhoDto): Promise<{
+        itens: import("./entities/carrinho-item.entity").CarrinhoItem[];
+        totalItens: number;
+        subtotal: number;
+        idCarrinho: string;
+        usuario: import("../usuario/entities/usuario.entity").Usuario;
+        status: string;
+        dataCriacao: Date;
+        dataAtualizacao: Date | null;
+    }>;
+    removerItem(req: any, idItem: string): Promise<{
+        itens: import("./entities/carrinho-item.entity").CarrinhoItem[];
+        totalItens: number;
+        subtotal: number;
+        idCarrinho: string;
+        usuario: import("../usuario/entities/usuario.entity").Usuario;
+        status: string;
+        dataCriacao: Date;
+        dataAtualizacao: Date | null;
+    }>;
+    limparCarrinho(req: any): Promise<{
+        itens: import("./entities/carrinho-item.entity").CarrinhoItem[];
+        totalItens: number;
+        subtotal: number;
+        idCarrinho: string;
+        usuario: import("../usuario/entities/usuario.entity").Usuario;
+        status: string;
+        dataCriacao: Date;
+        dataAtualizacao: Date | null;
+    }>;
 }

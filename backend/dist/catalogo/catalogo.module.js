@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CatalogoModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
+const jwt_1 = require("@nestjs/jwt");
 const catalogo_service_1 = require("./catalogo.service");
 const catalogo_controller_1 = require("./catalogo.controller");
 const produto_entity_1 = require("./entities/produto.entity");
@@ -22,6 +23,7 @@ exports.CatalogoModule = CatalogoModule = __decorate([
     (0, common_1.Module)({
         imports: [
             typeorm_1.TypeOrmModule.forFeature([produto_entity_1.Produto, categoria_entity_1.Categoria, produto_imagem_entity_1.ProdutoImagem, fornecedor_entity_1.Fornecedor]),
+            jwt_1.JwtModule.register({ secret: process.env.JWT_SECRET }),
         ],
         controllers: [catalogo_controller_1.CatalogoController],
         providers: [catalogo_service_1.CatalogoService],

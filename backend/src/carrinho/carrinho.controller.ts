@@ -1,34 +1,55 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { CarrinhoService } from './carrinho.service';
-import { CreateCarrinhoDto } from './dto/create-carrinho.dto';
-import { UpdateCarrinhoDto } from './dto/update-carrinho.dto';
+import { AddItemCarrinhoDto } from './dto/add-item-carrinho.dto';
+import { UpdateItemCarrinhoDto } from './dto/update-item-carrinho.dto';
 
 @Controller('carrinho')
 export class CarrinhoController {
   constructor(private readonly carrinhoService: CarrinhoService) {}
 
-  @Post()
-  create(@Body() createCarrinhoDto: CreateCarrinhoDto) {
-    return this.carrinhoService.create(createCarrinhoDto);
+  private getUserId(req: any): string {
+    return req.user.id ?? req.user.sub;
   }
 
   @Get()
-  findAll() {
-    return this.carrinhoService.findAll();
+  obterCarrinho(@Req() req: any) {
+    return this.carrinhoService.obterCarrinho(this.getUserId(req));
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.carrinhoService.findOne(+id);
+  @Post('itens')
+  adicionarItem(@Req() req: any, @Body() dto: AddItemCarrinhoDto) {
+    return this.carrinhoService.adicionarItem(this.getUserId(req), dto);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCarrinhoDto: UpdateCarrinhoDto) {
-    return this.carrinhoService.update(+id, updateCarrinhoDto);
+  @Patch('itens/:idItem')
+  atualizarQuantidade(
+    @Req() req: any,
+    @Param('idItem') idItem: string,
+    @Body() dto: UpdateItemCarrinhoDto,
+  ) {
+    return this.carrinhoService.atualizarQuantidade(
+      this.getUserId(req),
+      idItem,
+      dto,
+    );
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.carrinhoService.remove(+id);
+  @Delete('itens/:idItem')
+  removerItem(@Req() req: any, @Param('idItem') idItem: string) {
+    return this.carrinhoService.removerItem(this.getUserId(req), idItem);
+  }
+
+  @Delete()
+  limparCarrinho(@Req() req: any) {
+    return this.carrinhoService.limparCarrinho(this.getUserId(req));
   }
 }
