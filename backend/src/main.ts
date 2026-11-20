@@ -1,13 +1,13 @@
-import 'dotenv/config';
-import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import "dotenv/config";
+import { ValidationPipe } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
+  app.enableCors();
   // Prefixo global das rotas
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix("api");
 
   // Validação automática dos DTOs
   app.useGlobalPipes(
@@ -20,11 +20,11 @@ async function bootstrap() {
 
   // Permitir requisições do frontend
   app.enableCors({
-    origin: ['http://localhost:3000'],
+    origin: ["http://localhost:3000"],
     credentials: true,
   });
 
-  await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
+  await app.listen(process.env.PORT ?? 3000, "0.0.0.0");
 }
 
 bootstrap();
