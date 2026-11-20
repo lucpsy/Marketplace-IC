@@ -17,6 +17,7 @@ type UsuarioAPI = {
 export function AdminUsuariosView() {
   const router = useRouter();
   const { user } = useStore();
+  const [atualizandoId, setAtualizandoId] = useState<string | null>(null);
 
   const [usuarios, setUsuarios] = useState<UsuarioAPI[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -70,6 +71,46 @@ export function AdminUsuariosView() {
 
     fetchUsuarios();
   }, [router]);
+
+  async function handleAlterarCargo(alvo: UsuarioAPI) {
+    const token = localStorage.getItem("diacom_token");
+    if (!token) return;
+
+    const isAdminAtual = alvo.cargo?.toLowerCase().includes("admin");
+    const novoCargo = isAdminAtual ? "cliente" : "admin";
+
+    try {
+      setAtualizandoId(alvo.idUsuario);
+      const res = await fetch(
+        `http://localhost:3001/api/usuario/${alvo.idUsuario}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ cargo: novoCargo }),
+        },
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(
+          err?.message || "Não foi possível alterar o cargo do usuário.",
+        );
+      }
+
+      setUsuarios((prev) =>
+        prev.map((u) =>
+          u.idUsuario === alvo.idUsuario ? { ...u, cargo: novoCargo } : u,
+        ),
+      );
+    } catch (err: any) {
+      alert(err.message || "Erro ao atualizar cargo.");
+    } finally {
+      setAtualizandoId(null);
+    }
+  }
 
   const usuariosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -217,6 +258,7 @@ export function AdminUsuariosView() {
                   <th className="px-4 py-3">Cargo</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Cadastro</th>
+                  <th className="px-4 py-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -277,6 +319,30 @@ export function AdminUsuariosView() {
                         {u.dataCadastro
                           ? new Date(u.dataCadastro).toLocaleDateString("pt-BR")
                           : "—"}
+                      </td>
+                      <td className="px-4 py-3.5 text-right">
+                        {String(user?.id) === String(u.idUsuario) ? (
+                          <span className="font-mono text-[11px] text-muted">
+                            Você
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={atualizandoId === u.idUsuario}
+                            onClick={() => handleAlterarCargo(u)}
+                            className={`rounded-lg border px-3 py-1.5 font-mono text-[11px] font-semibold transition-colors disabled:opacity-50 ${
+                              isAdmin
+                                ? "border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                                : "border-cyan/40 bg-cyan/10 text-cyan hover:bg-cyan/20"
+                            }`}
+                          >
+                            {atualizandoId === u.idUsuario
+                              ? "Salvando..."
+                              : isAdmin
+                                ? "Rebaixar a Cliente"
+                                : "Promover a Admin"}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
