@@ -7,6 +7,7 @@ import { Carrinho } from '../carrinho/entities/carrinho.entity';
 import { Usuario } from '../usuario/entities/usuario.entity';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
 import { UpdateStatusPedidoDto } from './dto/update-status-pedido.dto';
+import { PromocaoService } from '../promo/promo.service';
 export declare class PedidoService implements OnModuleInit {
     private readonly dataSource;
     private readonly pedidoRepo;
@@ -14,7 +15,8 @@ export declare class PedidoService implements OnModuleInit {
     private readonly transicaoRepo;
     private readonly carrinhoRepo;
     private readonly usuarioRepo;
-    constructor(dataSource: DataSource, pedidoRepo: Repository<Pedido>, statusRepo: Repository<StatusPedido>, transicaoRepo: Repository<TransicaoStatus>, carrinhoRepo: Repository<Carrinho>, usuarioRepo: Repository<Usuario>);
+    private readonly promocaoService;
+    constructor(dataSource: DataSource, pedidoRepo: Repository<Pedido>, statusRepo: Repository<StatusPedido>, transicaoRepo: Repository<TransicaoStatus>, carrinhoRepo: Repository<Carrinho>, usuarioRepo: Repository<Usuario>, promocaoService: PromocaoService);
     onModuleInit(): Promise<void>;
     listarStatus(): Promise<StatusPedido[]>;
     listarTransicoesPermitidas(idStatus: string): Promise<StatusPedido[]>;

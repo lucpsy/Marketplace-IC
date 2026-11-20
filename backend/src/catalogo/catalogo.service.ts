@@ -8,6 +8,7 @@ import { Fornecedor } from '../fornecedor/entities/fornecedor.entity';
 import { CreateProdutoDto } from './dto/create-produto.dto';
 import { UpdateProdutoDto } from './dto/update-produto.dto';
 import { CreateCategoriaDto, UpdateCategoriaDto } from './dto/create-categoria.dto';
+import { PromocaoService } from '../promo/promo.service';
 
 @Injectable()
 export class CatalogoService {
@@ -23,6 +24,8 @@ export class CatalogoService {
 
     @InjectRepository(Fornecedor)
     private readonly fornecedorRepo: Repository<Fornecedor>,
+
+    private readonly promocaoService: PromocaoService,
   ) {}
 
   /* -------------------------------------------------------- PRODUTOS */
@@ -64,10 +67,11 @@ export class CatalogoService {
       );
     }
 
-    return qb.getMany();
+    const produtos = await qb.getMany();
+    return this.promocaoService.enriquecerProdutosComPromocao(produtos);
   }
 
-  async findOneProduto(id: string) {
+  private async findOneProdutoEntity(id: string): Promise<Produto> {
     const produto = await this.produtoRepo
       .createQueryBuilder('produto')
       .leftJoinAndSelect('produto.fornecedor', 'fornecedor')
@@ -82,6 +86,13 @@ export class CatalogoService {
     }
 
     return produto;
+  }
+
+  async findOneProduto(id: string) {
+    const produto = await this.findOneProdutoEntity(id);
+    const [enriquecido] =
+      await this.promocaoService.enriquecerProdutosComPromocao([produto]);
+    return enriquecido;
   }
 
   async createProduto(dto: CreateProdutoDto) {
@@ -134,7 +145,7 @@ export class CatalogoService {
   }
 
   async updateProduto(id: string, dto: UpdateProdutoDto) {
-    const produto = await this.findOneProduto(id);
+    const produto = await this.findOneProdutoEntity(id);
 
     if (dto.idFornecedor) {
       const fornecedor = await this.fornecedorRepo.findOneBy({
@@ -185,7 +196,7 @@ export class CatalogoService {
   }
 
   async removeProduto(id: string) {
-    const produto = await this.findOneProduto(id);
+    const produto = await this.findOneProdutoEntity(id);
     produto.status = 'inativo';
     await this.produtoRepo.save(produto);
     return { message: `Produto #${id} desativado com sucesso` };

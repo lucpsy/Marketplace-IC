@@ -7,11 +7,13 @@ import { Produto } from './entities/produto.entity';
 import { Categoria } from './entities/categoria.entity';
 import { ProdutoImagem } from './entities/produto-imagem.entity';
 import { Fornecedor } from '../fornecedor/entities/fornecedor.entity';
+import { PromocaoModule } from '../promo/promo.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Produto, Categoria, ProdutoImagem, Fornecedor]),
     JwtModule.register({ secret: process.env.JWT_SECRET }),
+    PromocaoModule,
   ],
   controllers: [CatalogoController],
   providers: [CatalogoService],

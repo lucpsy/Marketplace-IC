@@ -3,7 +3,7 @@
 .env.*
 !.env.example
 *.env
-
+.agent/
 # Dependencies
 node_modules/
 .pnp

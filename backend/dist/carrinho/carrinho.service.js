@@ -20,12 +20,14 @@ const carrinho_entity_1 = require("./entities/carrinho.entity");
 const carrinho_item_entity_1 = require("./entities/carrinho-item.entity");
 const produto_entity_1 = require("../catalogo/entities/produto.entity");
 const usuario_entity_1 = require("../usuario/entities/usuario.entity");
+const promo_service_1 = require("../promo/promo.service");
 let CarrinhoService = class CarrinhoService {
-    constructor(carrinhoRepo, itemRepo, produtoRepo, usuarioRepo) {
+    constructor(carrinhoRepo, itemRepo, produtoRepo, usuarioRepo, promocaoService) {
         this.carrinhoRepo = carrinhoRepo;
         this.itemRepo = itemRepo;
         this.produtoRepo = produtoRepo;
         this.usuarioRepo = usuarioRepo;
+        this.promocaoService = promocaoService;
     }
     async getOrCreateCarrinho(usuarioId) {
         let carrinho = await this.carrinhoRepo.findOne({
@@ -44,7 +46,7 @@ let CarrinhoService = class CarrinhoService {
         }
         return carrinho;
     }
-    async obterCarrinho(usuarioId) {
+    async obterCarrinho(usuarioId, codigoCupom) {
         const carrinhoBase = await this.getOrCreateCarrinho(usuarioId);
         const carrinho = await this.carrinhoRepo.findOne({
             where: { idCarrinho: carrinhoBase.idCarrinho },
@@ -62,12 +64,52 @@ let CarrinhoService = class CarrinhoService {
         });
         const itens = carrinho?.itens ?? [];
         const totalItens = itens.reduce((acc, item) => acc + item.quantidade, 0);
-        const subtotal = itens.reduce((acc, item) => acc + Number(item.precoUnitario) * item.quantidade, 0);
+        if (itens.length === 0) {
+            return {
+                ...carrinho,
+                itens: [],
+                totalItens: 0,
+                subtotal: 0,
+                descontoProdutos: 0,
+                descontoCombos: 0,
+                descontoCupom: 0,
+                descontoTotal: 0,
+                totalComDesconto: 0,
+                promocoesAplicadas: [],
+                cupomAplicado: null,
+            };
+        }
+        const calculo = await this.promocaoService.calcularDescontos({
+            itens: itens.map((item) => ({
+                produto: item.produto,
+                quantidade: item.quantidade,
+            })),
+            codigoCupom,
+        });
+        const itensEnriquecidos = itens.map((item, idx) => {
+            const calcItem = calculo.itens[idx];
+            return {
+                ...item,
+                precoUnitarioFinal: calcItem?.precoUnitarioFinal ?? Number(item.precoUnitario),
+                descontoUnitario: calcItem?.descontoUnitario ?? 0,
+                descontoTotalItem: calcItem?.descontoTotalItem ?? 0,
+                valorTotalItem: calcItem?.valorTotalItem ??
+                    Number((Number(item.precoUnitario) * item.quantidade).toFixed(2)),
+                promocaoAplicada: calcItem?.promocaoAplicada ?? null,
+            };
+        });
         return {
             ...carrinho,
-            itens,
+            itens: itensEnriquecidos,
             totalItens,
-            subtotal: Number(subtotal.toFixed(2)),
+            subtotal: calculo.subtotalBruto,
+            descontoProdutos: calculo.descontoProdutos,
+            descontoCombos: calculo.descontoCombos,
+            descontoCupom: calculo.descontoCupom,
+            descontoTotal: calculo.descontoTotal,
+            totalComDesconto: calculo.valorTotal,
+            promocoesAplicadas: calculo.promocoesAplicadas,
+            cupomAplicado: calculo.cupomAplicado,
         };
     }
     async adicionarItem(usuarioId, dto) {
@@ -162,6 +204,7 @@ exports.CarrinhoService = CarrinhoService = __decorate([
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        promo_service_1.PromocaoService])
 ], CarrinhoService);
 //# sourceMappingURL=carrinho.service.js.map

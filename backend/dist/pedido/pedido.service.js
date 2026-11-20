@@ -26,14 +26,16 @@ const carrinho_item_entity_1 = require("../carrinho/entities/carrinho-item.entit
 const produto_entity_1 = require("../catalogo/entities/produto.entity");
 const usuario_entity_1 = require("../usuario/entities/usuario.entity");
 const seed_status_pedido_1 = require("../database/seeds/seed-status-pedido");
+const promo_service_1 = require("../promo/promo.service");
 let PedidoService = class PedidoService {
-    constructor(dataSource, pedidoRepo, statusRepo, transicaoRepo, carrinhoRepo, usuarioRepo) {
+    constructor(dataSource, pedidoRepo, statusRepo, transicaoRepo, carrinhoRepo, usuarioRepo, promocaoService) {
         this.dataSource = dataSource;
         this.pedidoRepo = pedidoRepo;
         this.statusRepo = statusRepo;
         this.transicaoRepo = transicaoRepo;
         this.carrinhoRepo = carrinhoRepo;
         this.usuarioRepo = usuarioRepo;
+        this.promocaoService = promocaoService;
     }
     async onModuleInit() {
         await (0, seed_status_pedido_1.seedStatusPedido)(this.statusRepo, this.transicaoRepo);
@@ -79,10 +81,23 @@ let PedidoService = class PedidoService {
         if (!statusInicial) {
             throw new common_1.NotFoundException('Status inicial "Confirmado" não configurado');
         }
-        const subtotal = carrinho.itens.reduce((acc, item) => acc + Number(item.produto.precoVenda) * item.quantidade, 0);
-        const valorDesconto = dto.valorDesconto ?? 0;
-        const frete = dto.frete ?? 0;
-        const valorTotal = Math.max(0, subtotal - valorDesconto + frete);
+        const calculo = await this.promocaoService.calcularDescontos({
+            itens: carrinho.itens.map((item) => ({
+                produto: item.produto,
+                quantidade: item.quantidade,
+            })),
+            codigoCupom: dto.codigoCupom,
+            frete: dto.frete ?? 0,
+        });
+        const subtotal = calculo.subtotalBruto;
+        const valorDesconto = calculo.descontoTotal;
+        const frete = calculo.freteFinal;
+        const valorTotal = calculo.valorTotal;
+        const resumoPromos = calculo.promocoesAplicadas.length > 0
+            ? ` (promoções aplicadas: ${calculo.promocoesAplicadas
+                .map((p) => (p.codigo ? `${p.titulo} [${p.codigo}]` : p.titulo))
+                .join(', ')})`
+            : '';
         const idPedidoCriado = await this.dataSource.transaction(async (manager) => {
             const pedido = manager.create(pedido_entity_1.Pedido, {
                 usuario: carrinho.usuario,
@@ -94,9 +109,11 @@ let PedidoService = class PedidoService {
                 observacao: dto.observacao ?? null,
             });
             const pedidoSalvo = await manager.save(pedido_entity_1.Pedido, pedido);
-            const itensPedido = carrinho.itens.map((item) => {
-                const precoUnit = Number(item.produto.precoVenda);
-                const totalItem = precoUnit * item.quantidade;
+            const itensPedido = carrinho.itens.map((item, idx) => {
+                const calcItem = calculo.itens[idx];
+                const precoUnit = calcItem?.precoUnitario ?? Number(item.produto.precoVenda);
+                const descontoItem = calcItem?.descontoTotalItem ?? 0;
+                const totalItem = calcItem?.valorTotalItem ?? Math.max(0, precoUnit * item.quantidade - descontoItem);
                 return manager.create(item_pedido_entity_1.ItemPedido, {
                     pedido: pedidoSalvo,
                     produto: item.produto,
@@ -104,7 +121,7 @@ let PedidoService = class PedidoService {
                     skuSnapshot: item.produto.sku ?? null,
                     quantidade: item.quantidade,
                     precoUnitarioSnapshot: precoUnit.toFixed(2),
-                    desconto: '0.00',
+                    desconto: descontoItem.toFixed(2),
                     valorTotal: totalItem.toFixed(2),
                 });
             });
@@ -116,7 +133,7 @@ let PedidoService = class PedidoService {
                 pedido: pedidoSalvo,
                 status: statusInicial,
                 usuarioResponsavel: carrinho.usuario,
-                observacao: 'Pedido confirmado a partir do carrinho',
+                observacao: `Pedido confirmado a partir do carrinho${resumoPromos}`,
             });
             await manager.save(historico_status_entity_1.HistoricoStatus, historicoInicial);
             await manager.delete(carrinho_item_entity_1.CarrinhoItem, {
@@ -267,6 +284,7 @@ exports.PedidoService = PedidoService = __decorate([
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        promo_service_1.PromocaoService])
 ], PedidoService);
 //# sourceMappingURL=pedido.service.js.map

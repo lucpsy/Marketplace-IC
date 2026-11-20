@@ -8,6 +8,9 @@ export declare class Promocao {
     dataInicio: Date;
     dataFim: Date;
     cor: string | null;
+    codigo: string | null;
+    valorMinimo: string | null;
+    quantidadeMinima: number | null;
     status: string;
     dataCadastro: Date;
     produtosPromocao: ProdutoPromocao[];

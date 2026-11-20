@@ -11,6 +11,7 @@ import { Carrinho } from '../carrinho/entities/carrinho.entity';
 import { CarrinhoItem } from '../carrinho/entities/carrinho-item.entity';
 import { Produto } from '../catalogo/entities/produto.entity';
 import { Usuario } from '../usuario/entities/usuario.entity';
+import { PromocaoModule } from '../promo/promo.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { Usuario } from '../usuario/entities/usuario.entity';
       Produto,
       Usuario,
     ]),
+    PromocaoModule,
   ],
   controllers: [PedidoController],
   providers: [PedidoService],

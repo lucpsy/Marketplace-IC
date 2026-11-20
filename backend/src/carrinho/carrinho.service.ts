@@ -11,6 +11,7 @@ import { Produto } from '../catalogo/entities/produto.entity';
 import { Usuario } from '../usuario/entities/usuario.entity';
 import { AddItemCarrinhoDto } from './dto/add-item-carrinho.dto';
 import { UpdateItemCarrinhoDto } from './dto/update-item-carrinho.dto';
+import { PromocaoService } from '../promo/promo.service';
 
 @Injectable()
 export class CarrinhoService {
@@ -26,6 +27,8 @@ export class CarrinhoService {
 
     @InjectRepository(Usuario)
     private readonly usuarioRepo: Repository<Usuario>,
+
+    private readonly promocaoService: PromocaoService,
   ) {}
 
   private async getOrCreateCarrinho(usuarioId: string): Promise<Carrinho> {
@@ -49,7 +52,7 @@ export class CarrinhoService {
     return carrinho;
   }
 
-  async obterCarrinho(usuarioId: string) {
+  async obterCarrinho(usuarioId: string, codigoCupom?: string) {
     const carrinhoBase = await this.getOrCreateCarrinho(usuarioId);
 
     const carrinho = await this.carrinhoRepo.findOne({
@@ -69,16 +72,57 @@ export class CarrinhoService {
 
     const itens = carrinho?.itens ?? [];
     const totalItens = itens.reduce((acc, item) => acc + item.quantidade, 0);
-    const subtotal = itens.reduce(
-      (acc, item) => acc + Number(item.precoUnitario) * item.quantidade,
-      0,
-    );
+
+    if (itens.length === 0) {
+      return {
+        ...carrinho,
+        itens: [],
+        totalItens: 0,
+        subtotal: 0,
+        descontoProdutos: 0,
+        descontoCombos: 0,
+        descontoCupom: 0,
+        descontoTotal: 0,
+        totalComDesconto: 0,
+        promocoesAplicadas: [],
+        cupomAplicado: null,
+      };
+    }
+
+    const calculo = await this.promocaoService.calcularDescontos({
+      itens: itens.map((item) => ({
+        produto: item.produto,
+        quantidade: item.quantidade,
+      })),
+      codigoCupom,
+    });
+
+    const itensEnriquecidos = itens.map((item, idx) => {
+      const calcItem = calculo.itens[idx];
+      return {
+        ...item,
+        precoUnitarioFinal: calcItem?.precoUnitarioFinal ?? Number(item.precoUnitario),
+        descontoUnitario: calcItem?.descontoUnitario ?? 0,
+        descontoTotalItem: calcItem?.descontoTotalItem ?? 0,
+        valorTotalItem:
+          calcItem?.valorTotalItem ??
+          Number((Number(item.precoUnitario) * item.quantidade).toFixed(2)),
+        promocaoAplicada: calcItem?.promocaoAplicada ?? null,
+      };
+    });
 
     return {
       ...carrinho,
-      itens,
+      itens: itensEnriquecidos,
       totalItens,
-      subtotal: Number(subtotal.toFixed(2)),
+      subtotal: calculo.subtotalBruto,
+      descontoProdutos: calculo.descontoProdutos,
+      descontoCombos: calculo.descontoCombos,
+      descontoCupom: calculo.descontoCupom,
+      descontoTotal: calculo.descontoTotal,
+      totalComDesconto: calculo.valorTotal,
+      promocoesAplicadas: calculo.promocoesAplicadas,
+      cupomAplicado: calculo.cupomAplicado,
     };
   }
 

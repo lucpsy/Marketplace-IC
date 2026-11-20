@@ -20,6 +20,7 @@ const carrinho_entity_1 = require("../carrinho/entities/carrinho.entity");
 const carrinho_item_entity_1 = require("../carrinho/entities/carrinho-item.entity");
 const produto_entity_1 = require("../catalogo/entities/produto.entity");
 const usuario_entity_1 = require("../usuario/entities/usuario.entity");
+const promo_module_1 = require("../promo/promo.module");
 let PedidoModule = class PedidoModule {
 };
 exports.PedidoModule = PedidoModule;
@@ -37,6 +38,7 @@ exports.PedidoModule = PedidoModule = __decorate([
                 produto_entity_1.Produto,
                 usuario_entity_1.Usuario,
             ]),
+            promo_module_1.PromocaoModule,
         ],
         controllers: [pedido_controller_1.PedidoController],
         providers: [pedido_service_1.PedidoService],

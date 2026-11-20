@@ -57,6 +57,28 @@ __decorate([
     __metadata("design:type", String)
 ], Promocao.prototype, "cor", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 50, nullable: true, unique: true }),
+    __metadata("design:type", String)
+], Promocao.prototype, "codigo", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        name: 'valor_minimo',
+        type: 'decimal',
+        precision: 12,
+        scale: 2,
+        nullable: true,
+    }),
+    __metadata("design:type", String)
+], Promocao.prototype, "valorMinimo", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        name: 'quantidade_minima',
+        type: 'integer',
+        nullable: true,
+    }),
+    __metadata("design:type", Number)
+], Promocao.prototype, "quantidadeMinima", void 0);
+__decorate([
     (0, typeorm_1.Column)({
         type: 'varchar',
         length: 30,

@@ -19,6 +19,7 @@ import { Usuario } from '../usuario/entities/usuario.entity';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
 import { UpdateStatusPedidoDto } from './dto/update-status-pedido.dto';
 import { seedStatusPedido } from '../database/seeds/seed-status-pedido';
+import { PromocaoService } from '../promo/promo.service';
 
 @Injectable()
 export class PedidoService implements OnModuleInit {
@@ -39,6 +40,8 @@ export class PedidoService implements OnModuleInit {
 
     @InjectRepository(Usuario)
     private readonly usuarioRepo: Repository<Usuario>,
+
+    private readonly promocaoService: PromocaoService,
   ) {}
 
   async onModuleInit() {
@@ -104,13 +107,26 @@ export class PedidoService implements OnModuleInit {
       throw new NotFoundException('Status inicial "Confirmado" não configurado');
     }
 
-    const subtotal = carrinho.itens.reduce(
-      (acc, item) => acc + Number(item.produto.precoVenda) * item.quantidade,
-      0,
-    );
-    const valorDesconto = dto.valorDesconto ?? 0;
-    const frete = dto.frete ?? 0;
-    const valorTotal = Math.max(0, subtotal - valorDesconto + frete);
+    const calculo = await this.promocaoService.calcularDescontos({
+      itens: carrinho.itens.map((item) => ({
+        produto: item.produto,
+        quantidade: item.quantidade,
+      })),
+      codigoCupom: dto.codigoCupom,
+      frete: dto.frete ?? 0,
+    });
+
+    const subtotal = calculo.subtotalBruto;
+    const valorDesconto = calculo.descontoTotal;
+    const frete = calculo.freteFinal;
+    const valorTotal = calculo.valorTotal;
+
+    const resumoPromos =
+      calculo.promocoesAplicadas.length > 0
+        ? ` (promoções aplicadas: ${calculo.promocoesAplicadas
+            .map((p) => (p.codigo ? `${p.titulo} [${p.codigo}]` : p.titulo))
+            .join(', ')})`
+        : '';
 
     const idPedidoCriado = await this.dataSource.transaction(async (manager) => {
       const pedido = manager.create(Pedido, {
@@ -125,9 +141,12 @@ export class PedidoService implements OnModuleInit {
 
       const pedidoSalvo = await manager.save(Pedido, pedido);
 
-      const itensPedido = carrinho.itens.map((item) => {
-        const precoUnit = Number(item.produto.precoVenda);
-        const totalItem = precoUnit * item.quantidade;
+      const itensPedido = carrinho.itens.map((item, idx) => {
+        const calcItem = calculo.itens[idx];
+        const precoUnit = calcItem?.precoUnitario ?? Number(item.produto.precoVenda);
+        const descontoItem = calcItem?.descontoTotalItem ?? 0;
+        const totalItem =
+          calcItem?.valorTotalItem ?? Math.max(0, precoUnit * item.quantidade - descontoItem);
 
         return manager.create(ItemPedido, {
           pedido: pedidoSalvo,
@@ -136,7 +155,7 @@ export class PedidoService implements OnModuleInit {
           skuSnapshot: item.produto.sku ?? null,
           quantidade: item.quantidade,
           precoUnitarioSnapshot: precoUnit.toFixed(2),
-          desconto: '0.00',
+          desconto: descontoItem.toFixed(2),
           valorTotal: totalItem.toFixed(2),
         });
       });
@@ -158,7 +177,7 @@ export class PedidoService implements OnModuleInit {
         pedido: pedidoSalvo,
         status: statusInicial,
         usuarioResponsavel: carrinho.usuario,
-        observacao: 'Pedido confirmado a partir do carrinho',
+        observacao: `Pedido confirmado a partir do carrinho${resumoPromos}`,
       });
       await manager.save(HistoricoStatus, historicoInicial);
 

@@ -8,10 +8,10 @@ export declare class CatalogoController {
     private readonly catalogoService;
     private readonly jwtService;
     constructor(catalogoService: CatalogoService, jwtService: JwtService);
-    findAllProdutos(req: Request, categoriaId?: string, fornecedorId?: string, busca?: string, apenasAtivos?: string): Promise<import("./entities/produto.entity").Produto[]>;
-    findOneProduto(id: string): Promise<import("./entities/produto.entity").Produto>;
-    createProduto(dto: CreateProdutoDto): Promise<import("./entities/produto.entity").Produto>;
-    updateProduto(id: string, dto: UpdateProdutoDto): Promise<import("./entities/produto.entity").Produto>;
+    findAllProdutos(req: Request, categoriaId?: string, fornecedorId?: string, busca?: string, apenasAtivos?: string): Promise<import("../promo/promo.service").ProdutoComPromocao[]>;
+    findOneProduto(id: string): Promise<import("../promo/promo.service").ProdutoComPromocao>;
+    createProduto(dto: CreateProdutoDto): Promise<import("../promo/promo.service").ProdutoComPromocao>;
+    updateProduto(id: string, dto: UpdateProdutoDto): Promise<import("../promo/promo.service").ProdutoComPromocao>;
     removeProduto(id: string): Promise<{
         message: string;
     }>;

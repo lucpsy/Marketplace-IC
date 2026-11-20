@@ -20,12 +20,14 @@ const produto_entity_1 = require("./entities/produto.entity");
 const categoria_entity_1 = require("./entities/categoria.entity");
 const produto_imagem_entity_1 = require("./entities/produto-imagem.entity");
 const fornecedor_entity_1 = require("../fornecedor/entities/fornecedor.entity");
+const promo_service_1 = require("../promo/promo.service");
 let CatalogoService = class CatalogoService {
-    constructor(produtoRepo, categoriaRepo, imagemRepo, fornecedorRepo) {
+    constructor(produtoRepo, categoriaRepo, imagemRepo, fornecedorRepo, promocaoService) {
         this.produtoRepo = produtoRepo;
         this.categoriaRepo = categoriaRepo;
         this.imagemRepo = imagemRepo;
         this.fornecedorRepo = fornecedorRepo;
+        this.promocaoService = promocaoService;
     }
     async findAllProdutos(filtros) {
         const qb = this.produtoRepo
@@ -51,9 +53,10 @@ let CatalogoService = class CatalogoService {
         if (filtros?.busca) {
             qb.andWhere('(LOWER(produto.nome) LIKE LOWER(:busca) OR LOWER(produto.descricao) LIKE LOWER(:busca))', { busca: `%${filtros.busca}%` });
         }
-        return qb.getMany();
+        const produtos = await qb.getMany();
+        return this.promocaoService.enriquecerProdutosComPromocao(produtos);
     }
-    async findOneProduto(id) {
+    async findOneProdutoEntity(id) {
         const produto = await this.produtoRepo
             .createQueryBuilder('produto')
             .leftJoinAndSelect('produto.fornecedor', 'fornecedor')
@@ -66,6 +69,11 @@ let CatalogoService = class CatalogoService {
             throw new common_1.NotFoundException(`Produto #${id} não encontrado`);
         }
         return produto;
+    }
+    async findOneProduto(id) {
+        const produto = await this.findOneProdutoEntity(id);
+        const [enriquecido] = await this.promocaoService.enriquecerProdutosComPromocao([produto]);
+        return enriquecido;
     }
     async createProduto(dto) {
         const fornecedor = await this.fornecedorRepo.findOneBy({
@@ -106,7 +114,7 @@ let CatalogoService = class CatalogoService {
         return this.findOneProduto(produtoSalvo.idProduto);
     }
     async updateProduto(id, dto) {
-        const produto = await this.findOneProduto(id);
+        const produto = await this.findOneProdutoEntity(id);
         if (dto.idFornecedor) {
             const fornecedor = await this.fornecedorRepo.findOneBy({
                 idFornecedor: dto.idFornecedor,
@@ -154,7 +162,7 @@ let CatalogoService = class CatalogoService {
         return this.findOneProduto(id);
     }
     async removeProduto(id) {
-        const produto = await this.findOneProduto(id);
+        const produto = await this.findOneProdutoEntity(id);
         produto.status = 'inativo';
         await this.produtoRepo.save(produto);
         return { message: `Produto #${id} desativado com sucesso` };
@@ -220,6 +228,7 @@ exports.CatalogoService = CatalogoService = __decorate([
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        promo_service_1.PromocaoService])
 ], CatalogoService);
 //# sourceMappingURL=catalogo.service.js.map

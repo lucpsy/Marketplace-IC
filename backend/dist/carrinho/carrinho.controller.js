@@ -24,8 +24,8 @@ let CarrinhoController = class CarrinhoController {
     getUserId(req) {
         return req.user.id ?? req.user.sub;
     }
-    obterCarrinho(req) {
-        return this.carrinhoService.obterCarrinho(this.getUserId(req));
+    obterCarrinho(req, cupom) {
+        return this.carrinhoService.obterCarrinho(this.getUserId(req), cupom);
     }
     adicionarItem(req, dto) {
         return this.carrinhoService.adicionarItem(this.getUserId(req), dto);
@@ -44,8 +44,9 @@ exports.CarrinhoController = CarrinhoController;
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)('cupom')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], CarrinhoController.prototype, "obterCarrinho", null);
 __decorate([

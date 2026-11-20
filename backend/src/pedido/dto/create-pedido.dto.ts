@@ -13,6 +13,10 @@ export class CreatePedidoDto {
   valorDesconto?: number;
 
   @IsOptional()
+  @IsString()
+  codigoCupom?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber({}, { message: 'frete deve ser numérico' })
   @Min(0, { message: 'frete não pode ser negativo' })

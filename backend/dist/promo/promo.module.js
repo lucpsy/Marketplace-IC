@@ -9,18 +9,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PromocaoModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
+const jwt_1 = require("@nestjs/jwt");
 const promo_service_1 = require("./promo.service");
 const promo_controller_1 = require("./promo.controller");
 const promocao_entity_1 = require("./entities/promocao.entity");
 const produto_promocao_entity_1 = require("./entities/produto_promocao.entity");
+const produto_entity_1 = require("../catalogo/entities/produto.entity");
 let PromocaoModule = class PromocaoModule {
 };
 exports.PromocaoModule = PromocaoModule;
 exports.PromocaoModule = PromocaoModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([promocao_entity_1.Promocao, produto_promocao_entity_1.ProdutoPromocao])],
+        imports: [
+            typeorm_1.TypeOrmModule.forFeature([promocao_entity_1.Promocao, produto_promocao_entity_1.ProdutoPromocao, produto_entity_1.Produto]),
+            jwt_1.JwtModule.register({ secret: process.env.JWT_SECRET }),
+        ],
         controllers: [promo_controller_1.PromocaoController],
         providers: [promo_service_1.PromocaoService],
+        exports: [promo_service_1.PromocaoService],
     })
 ], PromocaoModule);
 //# sourceMappingURL=promo.module.js.map

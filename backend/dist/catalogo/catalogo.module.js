@@ -16,6 +16,7 @@ const produto_entity_1 = require("./entities/produto.entity");
 const categoria_entity_1 = require("./entities/categoria.entity");
 const produto_imagem_entity_1 = require("./entities/produto-imagem.entity");
 const fornecedor_entity_1 = require("../fornecedor/entities/fornecedor.entity");
+const promo_module_1 = require("../promo/promo.module");
 let CatalogoModule = class CatalogoModule {
 };
 exports.CatalogoModule = CatalogoModule;
@@ -24,6 +25,7 @@ exports.CatalogoModule = CatalogoModule = __decorate([
         imports: [
             typeorm_1.TypeOrmModule.forFeature([produto_entity_1.Produto, categoria_entity_1.Categoria, produto_imagem_entity_1.ProdutoImagem, fornecedor_entity_1.Fornecedor]),
             jwt_1.JwtModule.register({ secret: process.env.JWT_SECRET }),
+            promo_module_1.PromocaoModule,
         ],
         controllers: [catalogo_controller_1.CatalogoController],
         providers: [catalogo_service_1.CatalogoService],

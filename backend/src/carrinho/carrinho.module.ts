@@ -6,9 +6,13 @@ import { Carrinho } from './entities/carrinho.entity';
 import { CarrinhoItem } from './entities/carrinho-item.entity';
 import { Produto } from '../catalogo/entities/produto.entity';
 import { Usuario } from '../usuario/entities/usuario.entity';
+import { PromocaoModule } from '../promo/promo.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Carrinho, CarrinhoItem, Produto, Usuario])],
+  imports: [
+    TypeOrmModule.forFeature([Carrinho, CarrinhoItem, Produto, Usuario]),
+    PromocaoModule,
+  ],
   controllers: [CarrinhoController],
   providers: [CarrinhoService],
   exports: [CarrinhoService],

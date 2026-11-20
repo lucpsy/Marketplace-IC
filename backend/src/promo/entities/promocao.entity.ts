@@ -42,6 +42,25 @@ export class Promocao {
     @Column({ type: 'varchar', length: 30, nullable: true })
     cor: string | null;
 
+    @Column({ type: 'varchar', length: 50, nullable: true, unique: true })
+    codigo: string | null;
+
+    @Column({
+        name: 'valor_minimo',
+        type: 'decimal',
+        precision: 12,
+        scale: 2,
+        nullable: true,
+    })
+    valorMinimo: string | null;
+
+    @Column({
+        name: 'quantidade_minima',
+        type: 'integer',
+        nullable: true,
+    })
+    quantidadeMinima: number | null;
+
     @Column({
         type: 'varchar',
         length: 30,

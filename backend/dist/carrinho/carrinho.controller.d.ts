@@ -5,10 +5,28 @@ export declare class CarrinhoController {
     private readonly carrinhoService;
     constructor(carrinhoService: CarrinhoService);
     private getUserId;
-    obterCarrinho(req: any): Promise<{
-        itens: import("./entities/carrinho-item.entity").CarrinhoItem[];
+    obterCarrinho(req: any, cupom?: string): Promise<{
+        itens: {
+            precoUnitarioFinal: number;
+            descontoUnitario: number;
+            descontoTotalItem: number;
+            valorTotalItem: number;
+            promocaoAplicada: import("../promo/promo.service").PromocaoResumo;
+            idCarrinhoItem: string;
+            carrinho: import("./entities/carrinho.entity").Carrinho;
+            produto: import("../catalogo/entities/produto.entity").Produto;
+            quantidade: number;
+            precoUnitario: string;
+        }[];
         totalItens: number;
         subtotal: number;
+        descontoProdutos: number;
+        descontoCombos: number;
+        descontoCupom: number;
+        descontoTotal: number;
+        totalComDesconto: number;
+        promocoesAplicadas: import("../promo/promo.service").PromocaoAplicadaResumo[];
+        cupomAplicado: import("../promo/promo.service").PromocaoResumo;
         idCarrinho: string;
         usuario: import("../usuario/entities/usuario.entity").Usuario;
         status: string;
@@ -16,9 +34,27 @@ export declare class CarrinhoController {
         dataAtualizacao: Date | null;
     }>;
     adicionarItem(req: any, dto: AddItemCarrinhoDto): Promise<{
-        itens: import("./entities/carrinho-item.entity").CarrinhoItem[];
+        itens: {
+            precoUnitarioFinal: number;
+            descontoUnitario: number;
+            descontoTotalItem: number;
+            valorTotalItem: number;
+            promocaoAplicada: import("../promo/promo.service").PromocaoResumo;
+            idCarrinhoItem: string;
+            carrinho: import("./entities/carrinho.entity").Carrinho;
+            produto: import("../catalogo/entities/produto.entity").Produto;
+            quantidade: number;
+            precoUnitario: string;
+        }[];
         totalItens: number;
         subtotal: number;
+        descontoProdutos: number;
+        descontoCombos: number;
+        descontoCupom: number;
+        descontoTotal: number;
+        totalComDesconto: number;
+        promocoesAplicadas: import("../promo/promo.service").PromocaoAplicadaResumo[];
+        cupomAplicado: import("../promo/promo.service").PromocaoResumo;
         idCarrinho: string;
         usuario: import("../usuario/entities/usuario.entity").Usuario;
         status: string;
@@ -26,9 +62,27 @@ export declare class CarrinhoController {
         dataAtualizacao: Date | null;
     }>;
     atualizarQuantidade(req: any, idItem: string, dto: UpdateItemCarrinhoDto): Promise<{
-        itens: import("./entities/carrinho-item.entity").CarrinhoItem[];
+        itens: {
+            precoUnitarioFinal: number;
+            descontoUnitario: number;
+            descontoTotalItem: number;
+            valorTotalItem: number;
+            promocaoAplicada: import("../promo/promo.service").PromocaoResumo;
+            idCarrinhoItem: string;
+            carrinho: import("./entities/carrinho.entity").Carrinho;
+            produto: import("../catalogo/entities/produto.entity").Produto;
+            quantidade: number;
+            precoUnitario: string;
+        }[];
         totalItens: number;
         subtotal: number;
+        descontoProdutos: number;
+        descontoCombos: number;
+        descontoCupom: number;
+        descontoTotal: number;
+        totalComDesconto: number;
+        promocoesAplicadas: import("../promo/promo.service").PromocaoAplicadaResumo[];
+        cupomAplicado: import("../promo/promo.service").PromocaoResumo;
         idCarrinho: string;
         usuario: import("../usuario/entities/usuario.entity").Usuario;
         status: string;
@@ -36,9 +90,27 @@ export declare class CarrinhoController {
         dataAtualizacao: Date | null;
     }>;
     removerItem(req: any, idItem: string): Promise<{
-        itens: import("./entities/carrinho-item.entity").CarrinhoItem[];
+        itens: {
+            precoUnitarioFinal: number;
+            descontoUnitario: number;
+            descontoTotalItem: number;
+            valorTotalItem: number;
+            promocaoAplicada: import("../promo/promo.service").PromocaoResumo;
+            idCarrinhoItem: string;
+            carrinho: import("./entities/carrinho.entity").Carrinho;
+            produto: import("../catalogo/entities/produto.entity").Produto;
+            quantidade: number;
+            precoUnitario: string;
+        }[];
         totalItens: number;
         subtotal: number;
+        descontoProdutos: number;
+        descontoCombos: number;
+        descontoCupom: number;
+        descontoTotal: number;
+        totalComDesconto: number;
+        promocoesAplicadas: import("../promo/promo.service").PromocaoAplicadaResumo[];
+        cupomAplicado: import("../promo/promo.service").PromocaoResumo;
         idCarrinho: string;
         usuario: import("../usuario/entities/usuario.entity").Usuario;
         status: string;
@@ -46,9 +118,27 @@ export declare class CarrinhoController {
         dataAtualizacao: Date | null;
     }>;
     limparCarrinho(req: any): Promise<{
-        itens: import("./entities/carrinho-item.entity").CarrinhoItem[];
+        itens: {
+            precoUnitarioFinal: number;
+            descontoUnitario: number;
+            descontoTotalItem: number;
+            valorTotalItem: number;
+            promocaoAplicada: import("../promo/promo.service").PromocaoResumo;
+            idCarrinhoItem: string;
+            carrinho: import("./entities/carrinho.entity").Carrinho;
+            produto: import("../catalogo/entities/produto.entity").Produto;
+            quantidade: number;
+            precoUnitario: string;
+        }[];
         totalItens: number;
         subtotal: number;
+        descontoProdutos: number;
+        descontoCombos: number;
+        descontoCupom: number;
+        descontoTotal: number;
+        totalComDesconto: number;
+        promocoesAplicadas: import("../promo/promo.service").PromocaoAplicadaResumo[];
+        cupomAplicado: import("../promo/promo.service").PromocaoResumo;
         idCarrinho: string;
         usuario: import("../usuario/entities/usuario.entity").Usuario;
         status: string;

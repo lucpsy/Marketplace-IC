@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import { CarrinhoService } from './carrinho.service';
@@ -21,8 +22,8 @@ export class CarrinhoController {
   }
 
   @Get()
-  obterCarrinho(@Req() req: any) {
-    return this.carrinhoService.obterCarrinho(this.getUserId(req));
+  obterCarrinho(@Req() req: any, @Query('cupom') cupom?: string) {
+    return this.carrinhoService.obterCarrinho(this.getUserId(req), cupom);
   }
 
   @Post('itens')

@@ -15,12 +15,16 @@ const carrinho_entity_1 = require("./entities/carrinho.entity");
 const carrinho_item_entity_1 = require("./entities/carrinho-item.entity");
 const produto_entity_1 = require("../catalogo/entities/produto.entity");
 const usuario_entity_1 = require("../usuario/entities/usuario.entity");
+const promo_module_1 = require("../promo/promo.module");
 let CarrinhoModule = class CarrinhoModule {
 };
 exports.CarrinhoModule = CarrinhoModule;
 exports.CarrinhoModule = CarrinhoModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([carrinho_entity_1.Carrinho, carrinho_item_entity_1.CarrinhoItem, produto_entity_1.Produto, usuario_entity_1.Usuario])],
+        imports: [
+            typeorm_1.TypeOrmModule.forFeature([carrinho_entity_1.Carrinho, carrinho_item_entity_1.CarrinhoItem, produto_entity_1.Produto, usuario_entity_1.Usuario]),
+            promo_module_1.PromocaoModule,
+        ],
         controllers: [carrinho_controller_1.CarrinhoController],
         providers: [carrinho_service_1.CarrinhoService],
         exports: [carrinho_service_1.CarrinhoService],
