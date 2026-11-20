@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
-import { useStore } from "@/lib/store"
-import { MOCK_USERS } from "@/lib/data"
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useStore } from "@/lib/store";
+import { MOCK_USERS } from "@/lib/data";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -14,8 +14,8 @@ import { MOCK_USERS } from "@/lib/data"
 function resolveRole(email: string) {
   const found = MOCK_USERS.find(
     (u) => u.email.toLowerCase() === email.trim().toLowerCase(),
-  )
-  return found?.role ?? "cliente"
+  );
+  return found?.role ?? "cliente";
 }
 
 // ---------------------------------------------------------------------------
@@ -23,47 +23,79 @@ function resolveRole(email: string) {
 // ---------------------------------------------------------------------------
 
 function RegisterForm({ onCancel }: { onCancel: () => void }) {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirm, setConfirm] = useState("")
-  const [showPass, setShowPass] = useState(false)
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
-    null,
-  )
-  const [isLoading, setIsLoading] = useState(false)
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     if (!name.trim()) {
-      setFeedback({ type: "error", message: "Informe seu nome completo." })
-      return
+      setFeedback({ type: "error", message: "Informe seu nome completo." });
+      return;
     }
     if (!email.includes("@")) {
-      setFeedback({ type: "error", message: "Informe um e-mail válido." })
-      return
+      setFeedback({ type: "error", message: "Informe um e-mail válido." });
+      return;
     }
     if (password.length < 6) {
-      setFeedback({ type: "error", message: "A senha deve ter ao menos 6 caracteres." })
-      return
+      setFeedback({
+        type: "error",
+        message: "A senha deve ter ao menos 6 caracteres.",
+      });
+      return;
     }
     if (password !== confirm) {
-      setFeedback({ type: "error", message: "As senhas não coincidem." })
-      return
+      setFeedback({ type: "error", message: "As senhas não coincidem." });
+      return;
     }
 
-    setIsLoading(true)
-    setFeedback(null)
+    setIsLoading(true);
+    setFeedback(null);
 
-    // Simula chamada de API
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      const res = await fetch("http://localhost:3001/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: name.trim(),
+          email: email.trim().toLowerCase(),
+          senha: password,
+          telefone: "", // campo esperado pelo CreateAccountDto do backend
+        }),
+      });
+
+      setIsLoading(false);
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        setFeedback({
+          type: "error",
+          message:
+            err?.message ||
+            "Erro ao criar conta. Verifique os dados ou se o e-mail já existe.",
+        });
+        return;
+      }
+
       setFeedback({
         type: "success",
         message: "Conta criada com sucesso! Você já pode fazer login.",
-      })
-      setTimeout(onCancel, 1500)
-    }, 800)
+      });
+      setTimeout(onCancel, 1500);
+    } catch (error) {
+      setIsLoading(false);
+      setFeedback({
+        type: "error",
+        message: "Erro de conexão com o servidor.",
+      });
+    }
   }
 
   return (
@@ -86,10 +118,11 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
       {/* Feedback */}
       {feedback && (
         <div
-          className={`mt-4 rounded-xl border px-3.5 py-2.5 text-xs ${feedback.type === "success"
-            ? "border-cyan/40 bg-cyan/10 text-cyan"
-            : "border-red-400/40 bg-red-400/10 text-red-300"
-            }`}
+          className={`mt-4 rounded-xl border px-3.5 py-2.5 text-xs ${
+            feedback.type === "success"
+              ? "border-cyan/40 bg-cyan/10 text-cyan"
+              : "border-red-400/40 bg-red-400/10 text-red-300"
+          }`}
         >
           {feedback.message}
         </div>
@@ -98,7 +131,9 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
       <form onSubmit={handleSubmit} className="mt-5 space-y-4">
         {/* Name */}
         <div>
-          <label className="block text-xs font-medium text-muted">Nome completo</label>
+          <label className="block text-xs font-medium text-muted">
+            Nome completo
+          </label>
           <input
             type="text"
             value={name}
@@ -111,7 +146,9 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
 
         {/* Email */}
         <div>
-          <label className="block text-xs font-medium text-muted">E-mail institucional</label>
+          <label className="block text-xs font-medium text-muted">
+            E-mail institucional
+          </label>
           <input
             type="email"
             value={email}
@@ -125,7 +162,9 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
         {/* Password */}
         <div>
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-medium text-muted">Senha</label>
+            <label className="block text-xs font-medium text-muted">
+              Senha
+            </label>
             <button
               type="button"
               onClick={() => setShowPass(!showPass)}
@@ -146,7 +185,9 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
 
         {/* Confirm */}
         <div>
-          <label className="block text-xs font-medium text-muted">Confirmar senha</label>
+          <label className="block text-xs font-medium text-muted">
+            Confirmar senha
+          </label>
           <input
             type={showPass ? "text" : "password"}
             value={confirm}
@@ -183,7 +224,7 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
         </div>
       </form>
     </div>
-  )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -191,48 +232,57 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
 // ---------------------------------------------------------------------------
 
 export function LoginView() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const redirectPath = searchParams?.get("redirect") || "/"
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectPath = searchParams?.get("redirect") || "/";
 
-  const { user, login, logout } = useStore()
+  const { user, login, logout } = useStore();
 
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [showRegister, setShowRegister] = useState(false)
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
-    null,
-  )
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     if (!email.trim()) {
-      setFeedback({ type: "error", message: "Informe seu e-mail institucional." })
-      return
+      setFeedback({
+        type: "error",
+        message: "Informe seu e-mail institucional.",
+      });
+      return;
     }
     if (!password) {
-      setFeedback({ type: "error", message: "Informe sua senha." })
-      return
+      setFeedback({ type: "error", message: "Informe sua senha." });
+      return;
     }
 
-    setIsLoading(true)
-    setFeedback(null)
+    setIsLoading(true);
+    setFeedback(null);
 
-    const role = resolveRole(email)
+    const ok = await login(email, password);
+    setIsLoading(false);
 
+    if (!ok) {
+      setFeedback({ type: "error", message: "E-mail ou senha inválidos." });
+      return;
+    }
+
+    const saved = JSON.parse(localStorage.getItem("diacom_user") || "{}");
+    const role = saved.role || "cliente";
+
+    setFeedback({
+      type: "success",
+      message: `Bem-vindo(a), ${saved.name}! Acesso como ${role === "admin" ? "Administrador" : "Cliente"} confirmado.`,
+    });
     setTimeout(() => {
-      login(email, password, role)
-      setIsLoading(false)
-      setFeedback({
-        type: "success",
-        message: `Bem-vindo(a)! Acesso como ${role === "admin" ? "Administrador" : "Cliente"} confirmado.`,
-      })
-      setTimeout(() => {
-        router.push(role === "admin" ? "/admin/loja" : redirectPath)
-      }, 700)
-    }, 600)
+      router.push(role === "admin" ? "/admin/loja" : redirectPath);
+    }, 700);
   }
 
   if (showRegister) {
@@ -267,7 +317,7 @@ export function LoginView() {
           </p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -298,15 +348,18 @@ export function LoginView() {
               </span>
               <div>
                 <p className="font-medium text-fg">
-                  Conectado como <span className="font-semibold text-cyan">{user.name}</span>
+                  Conectado como{" "}
+                  <span className="font-semibold text-cyan">{user.name}</span>
                 </p>
-                <p className="capitalize text-muted">Perfil ativo: {user.role}</p>
+                <p className="capitalize text-muted">
+                  Perfil ativo: {user.role}
+                </p>
               </div>
             </div>
             <button
               onClick={() => {
-                logout()
-                setFeedback({ type: "success", message: "Sessão encerrada." })
+                logout();
+                setFeedback({ type: "success", message: "Sessão encerrada." });
               }}
               className="rounded-lg border border-line px-2.5 py-1 text-muted transition-colors hover:border-red-400 hover:text-red-400"
             >
@@ -319,16 +372,19 @@ export function LoginView() {
         <div className="mt-6 rounded-2xl border border-line bg-panel p-6 shadow-2xl backdrop-blur-sm sm:p-8">
           <div className="border-b border-line pb-4">
             <p className="label text-cyan">Autenticação</p>
-            <h2 className="mt-0.5 font-display text-xl font-bold">Entrar na sua conta</h2>
+            <h2 className="mt-0.5 font-display text-xl font-bold">
+              Entrar na sua conta
+            </h2>
           </div>
 
           {/* Feedback Banner */}
           {feedback && (
             <div
-              className={`mt-4 rounded-xl border px-3.5 py-2.5 text-xs transition-all ${feedback.type === "success"
-                ? "border-cyan/40 bg-cyan/10 text-cyan"
-                : "border-red-400/40 bg-red-400/10 text-red-300"
-                }`}
+              className={`mt-4 rounded-xl border px-3.5 py-2.5 text-xs transition-all ${
+                feedback.type === "success"
+                  ? "border-cyan/40 bg-cyan/10 text-cyan"
+                  : "border-red-400/40 bg-red-400/10 text-red-300"
+              }`}
             >
               {feedback.message}
             </div>
@@ -338,7 +394,9 @@ export function LoginView() {
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             {/* Email */}
             <div>
-              <label className="block text-xs font-medium text-muted">E-mail institucional</label>
+              <label className="block text-xs font-medium text-muted">
+                E-mail institucional
+              </label>
               <input
                 type="email"
                 value={email}
@@ -353,7 +411,9 @@ export function LoginView() {
             {/* Password */}
             <div>
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-medium text-muted">Senha de acesso</label>
+                <label className="block text-xs font-medium text-muted">
+                  Senha de acesso
+                </label>
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -421,13 +481,15 @@ export function LoginView() {
                     key={u.id}
                     className="cursor-pointer transition-colors hover:text-cyan"
                     onClick={() => {
-                      setEmail(u.email)
-                      setPassword("123456")
-                      setFeedback(null)
+                      setEmail(u.email);
+                      setPassword("123456");
+                      setFeedback(null);
                     }}
                     title="Clique para preencher"
                   >
-                    <td className="py-0.5 pr-3 capitalize text-muted">{u.role}</td>
+                    <td className="py-0.5 pr-3 capitalize text-muted">
+                      {u.role}
+                    </td>
                     <td className="py-0.5 pr-3 text-fg/80">{u.email}</td>
                     <td className="py-0.5 text-muted/70">123456</td>
                   </tr>
@@ -445,5 +507,5 @@ export function LoginView() {
         </p>
       </div>
     </div>
-  )
+  );
 }

@@ -1,5 +1,12 @@
-"use client"
-import { createContext, useContext, useRef, useState, type ReactNode } from "react"
+"use client";
+import {
+  createContext,
+  useContext,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useEffect } from "react";
 import {
   PRODUCTS,
   PROMOTIONS,
@@ -20,159 +27,198 @@ import {
   type Supplier,
   type Coupon,
   type MockUser,
-} from "./data"
+} from "./data";
 
-export type Role = "cliente" | "admin"
+export type Role = "cliente" | "admin";
 
-export type CartLine = { product: Product; qty: number }
+export type CartLine = { product: Product; qty: number };
 
 export type CheckoutPayload = {
-  items: CartLine[]
-  total: number
-  method: "Pix" | "Cartão"
-  couponCode?: string
-}
+  items: CartLine[];
+  total: number;
+  method: "Pix" | "Cartão";
+  couponCode?: string;
+};
 
 export type RepassePayload = {
-  description: string
-  amount: number
-  method: "Pix" | "Cartão" | "Dinheiro"
-  validator: string
-  validatorRole?: string
-  date?: string
-  status?: "Concluído" | "Processando"
-}
+  description: string;
+  amount: number;
+  method: "Pix" | "Cartão" | "Dinheiro";
+  validator: string;
+  validatorRole?: string;
+  date?: string;
+  status?: "Concluído" | "Processando";
+};
 
 type Store = {
-  role: Role
-  setRole: (r: Role) => void
-  user: MockUser | null
-  login: (email: string, password?: string, forceRole?: Role) => boolean
-  logout: () => void
+  role: Role;
+  setRole: (r: Role) => void;
+  user: MockUser | null;
+  login: (
+    email: string,
+    password?: string,
+    forceRole?: Role,
+  ) => Promise<boolean>;
+  logout: () => void;
 
-  offerDeadline: string
-  setOfferDeadline: (deadline: string) => void
+  offerDeadline: string;
+  setOfferDeadline: (deadline: string) => void;
 
-  products: Product[]
-  addProduct: (p: Product) => void
-  updateProduct: (p: Product) => void
-  removeProduct: (id: string) => void
+  products: Product[];
+  addProduct: (p: Product) => void;
+  updateProduct: (p: Product) => void;
+  removeProduct: (id: string) => void;
 
-  suppliers: Supplier[]
-  addSupplier: (s: Supplier) => void
-  updateSupplier: (s: Supplier) => void
-  removeSupplier: (id: string) => void
-  updateSupplierStage: (supplierId: string, newStage: string, syncOrders?: boolean) => void
-  updateFulfillmentStatus: (orderId: string, supplierId: string, status: string) => void
+  suppliers: Supplier[];
+  addSupplier: (s: Supplier) => void;
+  updateSupplier: (s: Supplier) => void;
+  removeSupplier: (id: string) => void;
+  updateSupplierStage: (
+    supplierId: string,
+    newStage: string,
+    syncOrders?: boolean,
+  ) => void;
+  updateFulfillmentStatus: (
+    orderId: string,
+    supplierId: string,
+    status: string,
+  ) => void;
 
-  coupons: Coupon[]
-  addCoupon: (c: Coupon) => void
-  removeCoupon: (code: string) => void
+  coupons: Coupon[];
+  addCoupon: (c: Coupon) => void;
+  removeCoupon: (code: string) => void;
 
-  promotions: Promotion[]
-  addPromotion: (p: Promotion) => void
-  updatePromotion: (p: Promotion) => void
-  removePromotion: (id: string) => void
+  promotions: Promotion[];
+  addPromotion: (p: Promotion) => void;
+  updatePromotion: (p: Promotion) => void;
+  removePromotion: (id: string) => void;
 
-  orders: Order[]
-  txns: Txn[]
-  addRepasse: (p: RepassePayload) => void
-  removeTxn: (id: string) => void
-  checkout: (p: CheckoutPayload) => { id: string; pin: string }
+  orders: Order[];
+  txns: Txn[];
+  addRepasse: (p: RepassePayload) => void;
+  removeTxn: (id: string) => void;
+  checkout: (p: CheckoutPayload) => { id: string; pin: string };
 
-  cart: CartLine[]
-  cartCount: number
-  addToCart: (p: Product) => void
-  setQty: (id: string, qty: number) => void
-  clearCart: () => void
-  cartOpen: boolean
-  setCartOpen: (v: boolean) => void
-}
+  cart: CartLine[];
+  cartCount: number;
+  addToCart: (p: Product) => void;
+  setQty: (id: string, qty: number) => void;
+  clearCart: () => void;
+  cartOpen: boolean;
+  setCartOpen: (v: boolean) => void;
+};
 
-const Ctx = createContext<Store | null>(null)
+const Ctx = createContext<Store | null>(null);
 
 export function useStore() {
-  const s = useContext(Ctx)
-  if (!s) throw new Error("useStore precisa estar dentro de <AppStore>")
-  return s
+  const s = useContext(Ctx);
+  if (!s) throw new Error("useStore precisa estar dentro de <AppStore>");
+  return s;
 }
 
 export function AppStore({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<MockUser | null>(null)
-  const [role, setRoleState] = useState<Role>("cliente")
-  const [offerDeadline, setOfferDeadline] = useState<string>(OFFER_DEADLINE)
-  const [suppliers, setSuppliers] = useState<Supplier[]>(SUPPLIERS)
-  const [coupons, setCoupons] = useState<Coupon[]>(COUPONS)
-  const [products, setProducts] = useState<Product[]>(PRODUCTS)
-  const [promotions, setPromotions] = useState<Promotion[]>(PROMOTIONS)
-  const [txns, setTxns] = useState<Txn[]>(TRANSACTIONS)
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS)
-  const [cart, setCart] = useState<CartLine[]>([])
-  const [userCarts, setUserCarts] = useState<Record<string, CartLine[]>>({})
-  const [cartOpen, setCartOpen] = useState(false)
-  const nextOrderNo = useRef(1043)
+  const [user, setUser] = useState<MockUser | null>(null);
+  const [role, setRoleState] = useState<Role>("cliente");
+  const [offerDeadline, setOfferDeadline] = useState<string>(OFFER_DEADLINE);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(SUPPLIERS);
+  const [coupons, setCoupons] = useState<Coupon[]>(COUPONS);
+  const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [promotions, setPromotions] = useState<Promotion[]>(PROMOTIONS);
+  const [txns, setTxns] = useState<Txn[]>(TRANSACTIONS);
+  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [userCarts, setUserCarts] = useState<Record<string, CartLine[]>>({});
+  const [cartOpen, setCartOpen] = useState(false);
+  useEffect(() => {
+    const savedUser = localStorage.getItem("diacom_user");
+    if (savedUser) {
+      const parsed: MockUser = JSON.parse(savedUser);
+      setUser(parsed);
+      setRoleState(parsed.role);
+    }
+  }, []);
+  const nextOrderNo = useRef(1043);
 
-  const cartCount = cart.reduce((n, l) => n + l.qty, 0)
+  const cartCount = cart.reduce((n, l) => n + l.qty, 0);
 
   function setRole(r: Role) {
-    setRoleState(r)
+    setRoleState(r);
     if (user) {
-      const matchingUser = MOCK_USERS.find((u) => u.role === r)
+      const matchingUser = MOCK_USERS.find((u) => u.role === r);
       if (matchingUser) {
-        setUser(matchingUser)
+        setUser(matchingUser);
       } else {
-        setUser({ ...user, role: r })
+        setUser({ ...user, role: r });
       }
     }
   }
 
-  function login(email: string, _password?: string, forceRole?: Role): boolean {
-    const cleanEmail = email.trim().toLowerCase()
-    const targetRole = forceRole || (cleanEmail.includes("admin") ? "admin" : "cliente")
-    const found = MOCK_USERS.find(
-      (u) => u.email.toLowerCase() === cleanEmail || u.role === targetRole,
-    )
+  async function login(
+    email: string,
+    password?: string,
+    _forceRole?: Role,
+  ): Promise<boolean> {
+    try {
+      const res = await fetch("http://localhost:3001/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          senha: password,
+        }),
+      });
 
-    let authenticatedUser: MockUser
-    if (found) {
-      authenticatedUser = found
-      setUser(found)
-      setRoleState(found.role)
-    } else {
-      authenticatedUser = {
-        id: `u-${Date.now()}`,
-        name: cleanEmail.split("@")[0] || "Usuário",
-        email: cleanEmail,
+      if (!res.ok) return false;
+
+      const data = await res.json();
+      const targetRole: Role = data.user?.cargo?.toLowerCase().includes("admin")
+        ? "admin"
+        : "cliente";
+
+      const authenticatedUser: MockUser = {
+        id: String(data.user.id),
+        name: data.user.nome, // <-- Nome verdadeiro vindo do banco!
+        email: data.user.email,
         role: targetRole,
-        courseOrDept: targetRole === "admin" ? "Diretoria DIACOM" : "Instituto de Computação",
-      }
-      setUser(authenticatedUser)
-      setRoleState(targetRole)
-    }
+        courseOrDept:
+          targetRole === "admin"
+            ? "Diretoria DIACOM"
+            : "Instituto de Computação",
+      };
 
-    // Restaura o carrinho associado ao usuário logado
-    setCart(userCarts[authenticatedUser.id] ?? [])
-    return true
+      localStorage.setItem("diacom_token", data.access_token);
+      localStorage.setItem("diacom_user", JSON.stringify(authenticatedUser));
+
+      setUser(authenticatedUser);
+      setRoleState(targetRole);
+      setCart(userCarts[authenticatedUser.id] ?? []);
+      return true;
+    } catch (error) {
+      console.error("Erro no login:", error);
+      return false;
+    }
   }
 
   function logout() {
-    setUser(null)
-    setRoleState("cliente")
-    setCart([]) // Esvazia o carrinho ao deslogar
-    setCartOpen(false)
+    localStorage.removeItem("diacom_token");
+    localStorage.removeItem("diacom_user");
+    setUser(null);
+    setRoleState("cliente");
+    setCart([]);
+    setCartOpen(false);
   }
 
   /* Suppliers */
   function addSupplier(s: Supplier) {
-    setSuppliers((prev) => [s, ...prev])
+    setSuppliers((prev) => [s, ...prev]);
   }
 
   function updateSupplier(s: Supplier) {
-    setSuppliers((prev) => prev.map((x) => (x.id === s.id ? s : x)))
+    setSuppliers((prev) => prev.map((x) => (x.id === s.id ? s : x)));
   }
 
   function removeSupplier(id: string) {
-    setSuppliers((prev) => prev.filter((x) => x.id !== id))
+    setSuppliers((prev) => prev.filter((x) => x.id !== id));
   }
 
   /**
@@ -180,10 +226,16 @@ export function AppStore({ children }: { children: ReactNode }) {
    * e, opcionalmente, sincroniza todos os fulfillments ativos daquele
    * fornecedor para o mesmo estágio — útil para avançar o batch inteiro.
    */
-  function updateSupplierStage(supplierId: string, newStage: string, syncOrders = false) {
+  function updateSupplierStage(
+    supplierId: string,
+    newStage: string,
+    syncOrders = false,
+  ) {
     setSuppliers((prev) =>
-      prev.map((s) => (s.id === supplierId ? { ...s, currentStage: newStage } : s)),
-    )
+      prev.map((s) =>
+        s.id === supplierId ? { ...s, currentStage: newStage } : s,
+      ),
+    );
     if (syncOrders) {
       setOrders((prev) =>
         prev.map((order) => ({
@@ -192,22 +244,26 @@ export function AppStore({ children }: { children: ReactNode }) {
             f.supplierId === supplierId ? { ...f, status: newStage as any } : f,
           ),
         })),
-      )
+      );
     }
   }
 
-  function updateFulfillmentStatus(orderId: string, supplierId: string, status: string) {
+  function updateFulfillmentStatus(
+    orderId: string,
+    supplierId: string,
+    status: string,
+  ) {
     setOrders((prev) =>
       prev.map((order) => {
-        if (order.id !== orderId) return order
+        if (order.id !== orderId) return order;
         return {
           ...order,
           fulfillments: order.fulfillments.map((f) =>
             f.supplierId === supplierId ? { ...f, status: status as any } : f,
           ),
-        }
+        };
       }),
-    )
+    );
   }
 
   /* Coupons */
@@ -215,50 +271,52 @@ export function AppStore({ children }: { children: ReactNode }) {
     const formatted: Coupon = {
       ...c,
       code: c.code.trim().toUpperCase(),
-    }
+    };
     setCoupons((prev) => [
       formatted,
       ...prev.filter((x) => x.code.toUpperCase() !== formatted.code),
-    ])
+    ]);
   }
 
   function removeCoupon(code: string) {
-    const normalized = code.trim().toUpperCase()
-    setCoupons((prev) => prev.filter((x) => x.code.toUpperCase() !== normalized))
+    const normalized = code.trim().toUpperCase();
+    setCoupons((prev) =>
+      prev.filter((x) => x.code.toUpperCase() !== normalized),
+    );
   }
 
   /* Products */
   function addProduct(p: Product) {
-    setProducts((prev) => [p, ...prev])
+    setProducts((prev) => [p, ...prev]);
   }
   function updateProduct(p: Product) {
-    setProducts((prev) => prev.map((x) => (x.id === p.id ? p : x)))
+    setProducts((prev) => prev.map((x) => (x.id === p.id ? p : x)));
   }
   function removeProduct(id: string) {
-    setProducts((prev) => prev.filter((x) => x.id !== id))
+    setProducts((prev) => prev.filter((x) => x.id !== id));
     setPromotions((prev) =>
       prev.map((pr) => ({
         ...pr,
         productIds: pr.productIds.filter((pid) => pid !== id),
       })),
-    )
+    );
   }
 
   /* Promotions */
   function addPromotion(p: Promotion) {
-    setPromotions((prev) => [p, ...prev])
+    setPromotions((prev) => [p, ...prev]);
   }
   function updatePromotion(p: Promotion) {
-    setPromotions((prev) => prev.map((x) => (x.id === p.id ? p : x)))
+    setPromotions((prev) => prev.map((x) => (x.id === p.id ? p : x)));
   }
   function removePromotion(id: string) {
-    setPromotions((prev) => prev.filter((x) => x.id !== id))
+    setPromotions((prev) => prev.filter((x) => x.id !== id));
   }
 
   /* Repasses & Transactions */
   function addRepasse(payload: RepassePayload) {
-    const id = `rep-${Date.now()}`
-    const today = payload.date || new Date().toISOString().slice(0, 10)
+    const id = `rep-${Date.now()}`;
+    const today = payload.date || new Date().toISOString().slice(0, 10);
     const newTxn: Txn = {
       id,
       date: today,
@@ -270,26 +328,28 @@ export function AppStore({ children }: { children: ReactNode }) {
       status: payload.status || "Concluído",
       validator: payload.validator,
       validatorRole: payload.validatorRole || "Conselho Fiscal / DIACOM",
-    }
-    setTxns((prev) => [newTxn, ...prev])
+    };
+    setTxns((prev) => [newTxn, ...prev]);
   }
 
   function removeTxn(id: string) {
-    setTxns((prev) => prev.filter((t) => t.id !== id))
+    setTxns((prev) => prev.filter((t) => t.id !== id));
   }
 
   /* Cart */
   function addToCart(product: Product) {
     setCart((prev) => {
-      const found = prev.find((l) => l.product.id === product.id)
+      const found = prev.find((l) => l.product.id === product.id);
       const next = found
-        ? prev.map((l) => (l.product.id === product.id ? { ...l, qty: l.qty + 1 } : l))
-        : [...prev, { product, qty: 1 }]
+        ? prev.map((l) =>
+            l.product.id === product.id ? { ...l, qty: l.qty + 1 } : l,
+          )
+        : [...prev, { product, qty: 1 }];
       if (user) {
-        setUserCarts((all) => ({ ...all, [user.id]: next }))
+        setUserCarts((all) => ({ ...all, [user.id]: next }));
       }
-      return next
-    })
+      return next;
+    });
   }
 
   function setQty(id: string, qty: number) {
@@ -297,45 +357,45 @@ export function AppStore({ children }: { children: ReactNode }) {
       const next =
         qty <= 0
           ? prev.filter((l) => l.product.id !== id)
-          : prev.map((l) => (l.product.id === id ? { ...l, qty } : l))
+          : prev.map((l) => (l.product.id === id ? { ...l, qty } : l));
       if (user) {
-        setUserCarts((all) => ({ ...all, [user.id]: next }))
+        setUserCarts((all) => ({ ...all, [user.id]: next }));
       }
-      return next
-    })
+      return next;
+    });
   }
 
   function clearCart() {
-    setCart([])
+    setCart([]);
     if (user) {
-      setUserCarts((all) => ({ ...all, [user.id]: [] }))
+      setUserCarts((all) => ({ ...all, [user.id]: [] }));
     }
   }
 
   function checkout(p: CheckoutPayload) {
-    const id = `#DC-${nextOrderNo.current++}`
-    const pin = genPin()
-    const today = new Date().toISOString().slice(0, 10)
-    const fee = +(p.total * PAYMENT_FEE[p.method]).toFixed(2)
+    const id = `#DC-${nextOrderNo.current++}`;
+    const pin = genPin();
+    const today = new Date().toISOString().slice(0, 10);
+    const fee = +(p.total * PAYMENT_FEE[p.method]).toFixed(2);
 
     // Agrupa itens do carrinho por fornecedor -> fulfillments
-    const bySupplier = new Map<string, OrderItem[]>()
+    const bySupplier = new Map<string, OrderItem[]>();
     for (const l of p.items) {
-      const arr = bySupplier.get(l.product.supplierId) ?? []
-      arr.push({ productId: l.product.id, name: l.product.name, qty: l.qty })
-      bySupplier.set(l.product.supplierId, arr)
+      const arr = bySupplier.get(l.product.supplierId) ?? [];
+      arr.push({ productId: l.product.id, name: l.product.name, qty: l.qty });
+      bySupplier.set(l.product.supplierId, arr);
     }
     const fulfillments: Fulfillment[] = Array.from(bySupplier.entries()).map(
       ([supplierId, items]) => {
-        const sup = suppliers.find((s) => s.id === supplierId)
-        const initialStatus = sup?.preparationFlow[0] ?? "Confirmado"
-        return { supplierId, items, status: initialStatus as any }
+        const sup = suppliers.find((s) => s.id === supplierId);
+        const initialStatus = sup?.preparationFlow[0] ?? "Confirmado";
+        return { supplierId, items, status: initialStatus as any };
       },
-    )
+    );
 
     const itemsLabel = p.items
       .map((l) => `${l.product.name} (${l.qty}un)`)
-      .join(", ")
+      .join(", ");
 
     const saleTxn: Txn = {
       id: `${id}-v`,
@@ -346,7 +406,7 @@ export function AppStore({ children }: { children: ReactNode }) {
       method: p.method,
       amount: p.total,
       status: "Concluído",
-    }
+    };
     const feeTxn: Txn = {
       id: `${id}-t`,
       date: today,
@@ -356,7 +416,7 @@ export function AppStore({ children }: { children: ReactNode }) {
       method: p.method,
       amount: -fee,
       status: "Concluído",
-    }
+    };
 
     const order: Order = {
       id,
@@ -367,15 +427,15 @@ export function AppStore({ children }: { children: ReactNode }) {
       method: p.method,
       pin,
       fulfillments,
-    }
+    };
 
-    setTxns((prev) => [saleTxn, feeTxn, ...prev])
-    setOrders((prev) => [order, ...prev])
-    setCart([])
+    setTxns((prev) => [saleTxn, feeTxn, ...prev]);
+    setOrders((prev) => [order, ...prev]);
+    setCart([]);
     if (user) {
-      setUserCarts((all) => ({ ...all, [user.id]: [] }))
+      setUserCarts((all) => ({ ...all, [user.id]: [] }));
     }
-    return { id, pin }
+    return { id, pin };
   }
 
   const value: Store = {
@@ -415,8 +475,7 @@ export function AppStore({ children }: { children: ReactNode }) {
     clearCart,
     cartOpen,
     setCartOpen,
-  }
+  };
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
-
