@@ -1,31 +1,32 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import type { ReactNode } from "react"
-import { useStore } from "@/lib/store"
-import { CartIcon } from "./Shared"
-import { CartDrawer } from "@/components/CartDrawer"
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import type { ReactNode } from "react";
+import { useStore } from "@/lib/store";
+import { CartIcon } from "./Shared";
+import { CartDrawer } from "@/components/CartDrawer";
 
-type NavItem = { label: string; href: string }
+type NavItem = { label: string; href: string };
 
 const CLIENT_NAV: NavItem[] = [
   { label: "Loja", href: "/" },
   { label: "Meus Pedidos", href: "/meus-pedidos" },
   { label: "Transparência", href: "/transparencia" },
-]
+];
 
 const ADMIN_NAV: NavItem[] = [
   { label: "Catálogo", href: "/admin/loja" },
   { label: "Controle", href: "/admin/controle" },
+  { label: "Usuários", href: "/admin/usuarios" },
   { label: "Fornecedores", href: "/admin/fornecedores" },
   { label: "Promoções & Cupons", href: "/admin/promocoes" },
   { label: "Transparência", href: "/transparencia" },
-]
+];
 
 export default function AppShell({ children }: { children: ReactNode }) {
-  const { user } = useStore()
-  const nav = user?.role === "admin" ? ADMIN_NAV : CLIENT_NAV
+  const { user } = useStore();
+  const nav = user?.role === "admin" ? ADMIN_NAV : CLIENT_NAV;
 
   return (
     <div className="min-h-screen bg-ink text-fg font-sans">
@@ -34,19 +35,19 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <Footer nav={nav} />
       {user?.role !== "admin" && <CartDrawer />}
     </div>
-  )
+  );
 }
 
 function Header({ nav }: { nav: NavItem[] }) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const { user, logout, cartCount, setCartOpen } = useStore()
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout, cartCount, setCartOpen } = useStore();
 
   function handleLogout() {
-    logout()
-    setCartOpen(false)
+    logout();
+    setCartOpen(false);
     if (pathname.startsWith("/admin")) {
-      router.push("/")
+      router.push("/");
     }
   }
 
@@ -68,7 +69,9 @@ function Header({ nav }: { nav: NavItem[] }) {
               key={n.href}
               href={n.href}
               className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                pathname === n.href ? "bg-panel-2 text-fg" : "text-muted hover:text-fg"
+                pathname === n.href
+                  ? "bg-panel-2 text-fg"
+                  : "text-muted hover:text-fg"
               }`}
             >
               {n.label}
@@ -152,11 +155,11 @@ function Header({ nav }: { nav: NavItem[] }) {
         ))}
       </div>
     </header>
-  )
+  );
 }
 
 function Footer({ nav }: { nav: NavItem[] }) {
-  const { user } = useStore()
+  const { user } = useStore();
 
   return (
     <footer className="border-t border-line px-4 py-10 print:hidden">
@@ -183,5 +186,5 @@ function Footer({ nav }: { nav: NavItem[] }) {
         </div>
       </div>
     </footer>
-  )
+  );
 }
