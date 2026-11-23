@@ -65,9 +65,9 @@ type Store = {
   setOfferDeadline: (deadline: string) => void;
 
   products: Product[];
-  addProduct: (p: Product) => void;
-  updateProduct: (p: Product) => void;
-  removeProduct: (id: string) => void;
+  addProduct: (p: Product) => Promise<void>;
+  updateProduct: (p: Product) => Promise<void>;
+  removeProduct: (id: string) => Promise<void>;
 
   suppliers: Supplier[];
   addSupplier: (s: Supplier) => void;
@@ -97,7 +97,7 @@ type Store = {
   txns: Txn[];
   addRepasse: (p: RepassePayload) => void;
   removeTxn: (id: string) => void;
-  checkout: (p: CheckoutPayload) => { id: string; pin: string };
+  checkout: (p: CheckoutPayload) => Promise<{ id: string; pin: string }>;
 
   cart: CartLine[];
   cartCount: number;
@@ -115,6 +115,55 @@ export function useStore() {
   if (!s) throw new Error("useStore precisa estar dentro de <AppStore>");
   return s;
 }
+function mapBackendOrder(raw: any): Order {
+  const statusNome = (raw.status?.nome || "Confirmado") as any;
+  const firstPay = Array.isArray(raw.pagamentos) ? raw.pagamentos[0] : null;
+  const rawMethod = String(firstPay?.metodo || "Pix").toLowerCase();
+  const method: "Pix" | "Cartão" | "Dinheiro" = rawMethod.includes("cart")
+    ? "Cartão"
+    : rawMethod.includes("din")
+      ? "Dinheiro"
+      : "Pix";
+
+  // Agrupa itens por fornecedor usando o idFornecedor numérico do banco
+  const bySupplier = new Map<string, OrderItem[]>();
+  for (const item of raw.itens ?? []) {
+    const supId = item.produto?.fornecedor?.idFornecedor
+      ? String(item.produto.fornecedor.idFornecedor)
+      : "1";
+    const arr = bySupplier.get(supId) ?? [];
+    arr.push({
+      productId: item.produto?.idProduto
+        ? String(item.produto.idProduto)
+        : undefined,
+      name: item.nomeProdutoSnapshot || item.produto?.nome || "Produto",
+      qty: Number(item.quantidade ?? 1),
+    });
+    bySupplier.set(supId, arr);
+  }
+
+  const fulfillments: Fulfillment[] =
+    bySupplier.size > 0
+      ? Array.from(bySupplier.entries()).map(([supplierId, items]) => ({
+          supplierId,
+          items,
+          status: statusNome,
+        }))
+      : [{ supplierId: "1", items: [], status: statusNome }];
+
+  return {
+    id: `#DC-${raw.idPedido}`,
+    date: raw.dataPedido
+      ? new Date(raw.dataPedido).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10),
+    buyer: raw.usuario?.nome || "Cliente",
+    buyerId: raw.usuario?.idUsuario ? String(raw.usuario.idUsuario) : undefined,
+    total: Number(raw.valorTotal ?? 0),
+    method,
+    pin: String(raw.idPedido).padStart(4, "0").slice(-4),
+    fulfillments,
+  };
+}
 
 export function AppStore({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MockUser | null>(null);
@@ -123,23 +172,254 @@ export function AppStore({ children }: { children: ReactNode }) {
   const [suppliers, setSuppliers] = useState<Supplier[]>(SUPPLIERS);
   const [coupons, setCoupons] = useState<Coupon[]>(COUPONS);
   const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [backendCategories, setBackendCategories] = useState<
+    { idCategoria: string; nome: string }[]
+  >([]);
   const [promotions, setPromotions] = useState<Promotion[]>(PROMOTIONS);
   const [txns, setTxns] = useState<Txn[]>(TRANSACTIONS);
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [userCarts, setUserCarts] = useState<Record<string, CartLine[]>>({});
   const [cartOpen, setCartOpen] = useState(false);
+
+  const nextOrderNo = useRef(1043);
+  const cartCount = cart.reduce((n, l) => n + l.qty, 0);
+
+  /* Products */
+  function buildProdutoPayload(p: Product) {
+    // Garante um idFornecedor numérico válido do banco
+    const validSupplier =
+      suppliers.find((s) => s.id === p.supplierId) || suppliers[0];
+    const idFornecedor = /^\d+$/.test(String(validSupplier?.id))
+      ? String(validSupplier.id)
+      : "1";
+
+    // Mapeia os nomes das categorias para os IDs reais do banco
+    const categoriaIds = (p.category ?? [])
+      .map(
+        (catName) =>
+          backendCategories.find(
+            (c) => c.nome.toLowerCase() === catName.toLowerCase(),
+          )?.idCategoria,
+      )
+      .filter((id): id is string => Boolean(id))
+      .map(String);
+
+    // Monta o array de imagens no formato ImagemProdutoDto
+    const allImgs = Array.from(
+      new Set([p.image, ...(p.images ?? [])].filter(Boolean)),
+    );
+    const imagens = allImgs.map((urlImagem, index) => ({
+      urlImagem,
+      ordem: index,
+      imagemPrincipal: index === 0,
+    }));
+
+    return {
+      nome: p.name,
+      descricao: p.blurb || undefined,
+      selo: p.badge || undefined,
+      precoCusto: Number((p.price * 0.5).toFixed(2)),
+      precoVenda: Number(p.price),
+      estoque: Number(p.stock ?? 0),
+      idFornecedor,
+      categoriaIds: categoriaIds.length > 0 ? categoriaIds : undefined,
+      imagens,
+    };
+  }
+
+  async function addProduct(p: Product) {
+    const token = localStorage.getItem("diacom_token");
+    if (!token) return;
+
+    const payload = {
+      ...buildProdutoPayload(p),
+      sku: `prod-${Date.now()}`,
+    };
+
+    const res = await fetch("http://localhost:3001/api/catalogo/produtos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.message || "Erro ao cadastrar produto no banco.");
+      return;
+    }
+
+    await refreshCatalog();
+  }
+
+  async function updateProduct(p: Product) {
+    const token = localStorage.getItem("diacom_token");
+    if (!token) return;
+
+    const payload = buildProdutoPayload(p);
+
+    const res = await fetch(
+      `http://localhost:3001/api/catalogo/produtos/${p.id}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      },
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.message || "Erro ao atualizar produto no banco.");
+      return;
+    }
+
+    await refreshCatalog();
+  }
+
+  async function removeProduct(id: string) {
+    const token = localStorage.getItem("diacom_token");
+    if (!token) return;
+
+    const res = await fetch(
+      `http://localhost:3001/api/catalogo/produtos/${id}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.message || "Erro ao remover produto do banco.");
+      return;
+    }
+
+    setProducts((prev) => prev.filter((x) => x.id !== id));
+    setPromotions((prev) =>
+      prev.map((pr) => ({
+        ...pr,
+        productIds: pr.productIds.filter((pid) => pid !== id),
+      })),
+    );
+  }
+
+  async function refreshOrders(targetRole: Role) {
+    const token = localStorage.getItem("diacom_token");
+    if (!token) return;
+
+    const endpoint =
+      targetRole === "admin"
+        ? "http://localhost:3001/api/pedido"
+        : "http://localhost:3001/api/pedido/meus";
+
+    try {
+      const res = await fetch(endpoint, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setOrders(data.map(mapBackendOrder));
+      }
+    } catch (err) {
+      console.error("Erro ao buscar pedidos reais:", err);
+    }
+  }
+
   useEffect(() => {
+    refreshCatalog();
+
     const savedUser = localStorage.getItem("diacom_user");
     if (savedUser) {
       const parsed: MockUser = JSON.parse(savedUser);
       setUser(parsed);
       setRoleState(parsed.role);
+      refreshOrders(parsed.role);
     }
   }, []);
-  const nextOrderNo = useRef(1043);
 
-  const cartCount = cart.reduce((n, l) => n + l.qty, 0);
+  async function refreshCatalog() {
+    try {
+      const [resProd, resCat, resForn] = await Promise.all([
+        fetch("http://localhost:3001/api/catalogo/produtos"),
+        fetch("http://localhost:3001/api/catalogo/categorias"),
+        fetch("http://localhost:3001/api/fornecedor").catch(() => null),
+      ]);
+
+      let loadedSuppliers = suppliers;
+      if (resForn && resForn.ok) {
+        const forns = await resForn.json();
+        if (Array.isArray(forns) && forns.length > 0) {
+          loadedSuppliers = forns.map((f: any) => {
+            const nome = f.nomeFantasia || f.nomeRazaoSocial;
+            const mockMatch = SUPPLIERS.find(
+              (s) => s.name.toLowerCase() === nome.toLowerCase(),
+            );
+            return {
+              id: String(f.idFornecedor),
+              name: nome,
+              pickupLocation:
+                mockMatch?.pickupLocation || "Sala do DIACOM — Bloco 4",
+              contact: f.email || mockMatch?.contact,
+              preparationFlow: mockMatch?.preparationFlow || [
+                "Confirmado",
+                "Em separação",
+                "Pronto para retirada",
+                "Entregue",
+              ],
+              currentStage: mockMatch?.currentStage || "Confirmado",
+            };
+          });
+          setSuppliers(loadedSuppliers);
+        }
+      }
+
+      if (resCat && resCat.ok) {
+        const cats = await resCat.json();
+        if (Array.isArray(cats)) setBackendCategories(cats);
+      }
+
+      if (resProd && resProd.ok) {
+        const prods = await resProd.json();
+        if (Array.isArray(prods) && prods.length > 0) {
+          setProducts(
+            prods.map((raw: any) => {
+              const imgs = Array.isArray(raw.imagens)
+                ? raw.imagens
+                    .sort((a: any, b: any) => (a.ordem ?? 0) - (b.ordem ?? 0))
+                    .map((img: any) => img.urlImagem || img.url)
+                    .filter(Boolean)
+                : [];
+              return {
+                id: String(raw.idProduto),
+                name: raw.nome,
+                category: Array.isArray(raw.categorias)
+                  ? raw.categorias.map((c: any) => c.nome)
+                  : ["Geral"],
+                supplierId: String(
+                  raw.fornecedor?.idFornecedor || loadedSuppliers[0]?.id || "1",
+                ),
+                price: Number(raw.precoVenda ?? 0),
+                stock: Number(raw.estoque ?? 0),
+                badge: raw.selo || undefined,
+                image: imgs[0] || "https://unsplash.com",
+                images: imgs,
+                blurb: raw.descricao || "",
+              };
+            }),
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao carregar catálogo:", err);
+    }
+  }
 
   function setRole(r: Role) {
     setRoleState(r);
@@ -177,7 +457,7 @@ export function AppStore({ children }: { children: ReactNode }) {
 
       const authenticatedUser: MockUser = {
         id: String(data.user.id),
-        name: data.user.nome, // <-- Nome verdadeiro vindo do banco!
+        name: data.user.nome,
         email: data.user.email,
         role: targetRole,
         courseOrDept:
@@ -192,6 +472,7 @@ export function AppStore({ children }: { children: ReactNode }) {
       setUser(authenticatedUser);
       setRoleState(targetRole);
       setCart(userCarts[authenticatedUser.id] ?? []);
+      await refreshOrders(targetRole);
       return true;
     } catch (error) {
       console.error("Erro no login:", error);
@@ -204,6 +485,7 @@ export function AppStore({ children }: { children: ReactNode }) {
     localStorage.removeItem("diacom_user");
     setUser(null);
     setRoleState("cliente");
+    setOrders([]);
     setCart([]);
     setCartOpen(false);
   }
@@ -365,6 +647,40 @@ export function AppStore({ children }: { children: ReactNode }) {
     });
   }
 
+  function mapBackendProduct(raw: any): Product {
+    const imgs = Array.isArray(raw.imagens)
+      ? raw.imagens
+          .sort((a: any, b: any) => (a.ordem ?? 0) - (b.ordem ?? 0))
+          .map((img: any) => img.url || img.caminho || img.src)
+          .filter(Boolean)
+      : [];
+
+    const supName =
+      raw.fornecedor?.nomeFantasia || raw.fornecedor?.nomeRazaoSocial || "";
+    const matchedSup = SUPPLIERS.find(
+      (s) => s.name.toLowerCase() === supName.toLowerCase(),
+    );
+
+    return {
+      id: String(raw.idProduto), // <--- AGORA É O ID REAL DO BANCO (bigint)!
+      name: raw.nome,
+      category: Array.isArray(raw.categorias)
+        ? raw.categorias.map((c: any) => c.nome)
+        : ["Geral"],
+      supplierId:
+        matchedSup?.id ||
+        String(raw.fornecedor?.idFornecedor || "confeccoes-ic"),
+      price: Number(raw.precoVenda ?? 0),
+      stock: Number(raw.estoque ?? 0),
+      badge: raw.selo || undefined,
+      image:
+        imgs[0] ||
+        "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop&auto=format",
+      images: imgs,
+      blurb: raw.descricao || "",
+    };
+  }
+
   function clearCart() {
     setCart([]);
     if (user) {
@@ -372,69 +688,70 @@ export function AppStore({ children }: { children: ReactNode }) {
     }
   }
 
-  function checkout(p: CheckoutPayload) {
-    const id = `#DC-${nextOrderNo.current++}`;
-    const pin = genPin();
-    const today = new Date().toISOString().slice(0, 10);
-    const fee = +(p.total * PAYMENT_FEE[p.method]).toFixed(2);
-
-    // Agrupa itens do carrinho por fornecedor -> fulfillments
-    const bySupplier = new Map<string, OrderItem[]>();
-    for (const l of p.items) {
-      const arr = bySupplier.get(l.product.supplierId) ?? [];
-      arr.push({ productId: l.product.id, name: l.product.name, qty: l.qty });
-      bySupplier.set(l.product.supplierId, arr);
+  async function checkout(p: CheckoutPayload) {
+    const token = localStorage.getItem("diacom_token");
+    if (!token) {
+      throw new Error("Você precisa estar logado para finalizar o pedido.");
     }
-    const fulfillments: Fulfillment[] = Array.from(bySupplier.entries()).map(
-      ([supplierId, items]) => {
-        const sup = suppliers.find((s) => s.id === supplierId);
-        const initialStatus = sup?.preparationFlow[0] ?? "Confirmado";
-        return { supplierId, items, status: initialStatus as any };
-      },
-    );
 
-    const itemsLabel = p.items
-      .map((l) => `${l.product.name} (${l.qty}un)`)
-      .join(", ");
-
-    const saleTxn: Txn = {
-      id: `${id}-v`,
-      date: today,
-      order: id,
-      description: `Venda — ${itemsLabel}${p.couponCode ? ` · cupom ${p.couponCode}` : ""}`,
-      category: "Vendas",
-      method: p.method,
-      amount: p.total,
-      status: "Concluído",
-    };
-    const feeTxn: Txn = {
-      id: `${id}-t`,
-      date: today,
-      order: id,
-      description: `Taxa de processamento ${p.method}`,
-      category: "Taxa",
-      method: p.method,
-      amount: -fee,
-      status: "Concluído",
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     };
 
-    const order: Order = {
-      id,
-      date: today,
-      buyer: user?.name || "Cliente Convidado",
-      buyerId: user?.id,
-      total: p.total,
-      method: p.method,
-      pin,
-      fulfillments,
-    };
+    // 1. Garante que o carrinho no banco começa limpo
+    await fetch("http://localhost:3001/api/carrinho", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-    setTxns((prev) => [saleTxn, feeTxn, ...prev]);
-    setOrders((prev) => [order, ...prev]);
+    // 2. Insere cada item do carrinho no banco de dados
+    for (const item of p.items) {
+      const resItem = await fetch("http://localhost:3001/api/carrinho/itens", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          idProduto: String(item.product.id),
+          quantidade: item.qty,
+        }),
+      });
+
+      if (!resItem.ok) {
+        const errData = await resItem.json().catch(() => ({}));
+        throw new Error(
+          errData.message ||
+            `Erro ao adicionar ${item.product.name} no carrinho.`,
+        );
+      }
+    }
+
+    // 3. Cria o pedido real no banco a partir do carrinho salvo
+    const resPedido = await fetch("http://localhost:3001/api/pedido", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        codigoCupom: p.couponCode || undefined,
+      }),
+    });
+
+    if (!resPedido.ok) {
+      const errData = await resPedido.json().catch(() => ({}));
+      throw new Error(
+        errData.message || "Erro ao finalizar o pedido no servidor.",
+      );
+    }
+
+    const pedidoCriado = await resPedido.json();
+    const id = `#DC-${pedidoCriado.idPedido}`;
+    const pin = String(pedidoCriado.idPedido).padStart(4, "0").slice(-4);
+
+    // 4. Atualiza a lista de pedidos direto do banco e limpa o carrinho local
+    await refreshOrders(role);
     setCart([]);
     if (user) {
       setUserCarts((all) => ({ ...all, [user.id]: [] }));
     }
+
     return { id, pin };
   }
 

@@ -4,22 +4,23 @@ import {
   Injectable,
   NotFoundException,
   OnModuleInit,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
-import { Pedido } from './entities/pedido.entity';
-import { ItemPedido } from './entities/item_pedido.entity';
-import { StatusPedido } from './entities/status_pedido.entity';
-import { TransicaoStatus } from './entities/transicao-status.entity';
-import { HistoricoStatus } from './entities/historico-status.entity';
-import { Carrinho } from '../carrinho/entities/carrinho.entity';
-import { CarrinhoItem } from '../carrinho/entities/carrinho-item.entity';
-import { Produto } from '../catalogo/entities/produto.entity';
-import { Usuario } from '../usuario/entities/usuario.entity';
-import { CreatePedidoDto } from './dto/create-pedido.dto';
-import { UpdateStatusPedidoDto } from './dto/update-status-pedido.dto';
-import { seedStatusPedido } from '../database/seeds/seed-status-pedido';
-import { PromocaoService } from '../promo/promo.service';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { DataSource, Repository } from "typeorm";
+import { Pedido } from "./entities/pedido.entity";
+import { ItemPedido } from "./entities/item_pedido.entity";
+import { StatusPedido } from "./entities/status_pedido.entity";
+import { TransicaoStatus } from "./entities/transicao-status.entity";
+import { HistoricoStatus } from "./entities/historico-status.entity";
+import { Carrinho } from "../carrinho/entities/carrinho.entity";
+import { CarrinhoItem } from "../carrinho/entities/carrinho-item.entity";
+import { Produto } from "../catalogo/entities/produto.entity";
+import { Usuario } from "../usuario/entities/usuario.entity";
+import { CreatePedidoDto } from "./dto/create-pedido.dto";
+import { UpdateStatusPedidoDto } from "./dto/update-status-pedido.dto";
+import { seedStatusPedido } from "../database/seeds/seed-status-pedido";
+import { PromocaoService } from "../promo/promo.service";
+import { seedCatalogo } from "database/seeds/seed-catalogo";
 
 @Injectable()
 export class PedidoService implements OnModuleInit {
@@ -46,6 +47,7 @@ export class PedidoService implements OnModuleInit {
 
   async onModuleInit() {
     await seedStatusPedido(this.statusRepo, this.transicaoRepo);
+    await seedCatalogo(this.dataSource);
   }
 
   /* -------------------------------------------------------- STATUS */
@@ -53,7 +55,7 @@ export class PedidoService implements OnModuleInit {
   async listarStatus(): Promise<StatusPedido[]> {
     return this.statusRepo.find({
       where: { ativo: true },
-      order: { ordem: 'ASC' },
+      order: { ordem: "ASC" },
     });
   }
 
@@ -63,7 +65,7 @@ export class PedidoService implements OnModuleInit {
         statusOrigem: { idStatus },
         permitido: true,
       },
-      relations: ['statusDestino'],
+      relations: ["statusDestino"],
     });
 
     return transicoes
@@ -77,17 +79,17 @@ export class PedidoService implements OnModuleInit {
   async criarDoCarrinho(usuarioId: string, dto: CreatePedidoDto) {
     const carrinho = await this.carrinhoRepo.findOne({
       where: { usuario: { idUsuario: usuarioId } },
-      relations: ['usuario', 'itens', 'itens.produto'],
+      relations: ["usuario", "itens", "itens.produto"],
     });
 
     if (!carrinho || !carrinho.itens || carrinho.itens.length === 0) {
       throw new BadRequestException(
-        'Não é possível finalizar o pedido: o carrinho está vazio',
+        "Não é possível finalizar o pedido: o carrinho está vazio",
       );
     }
 
     for (const item of carrinho.itens) {
-      if (!item.produto || item.produto.status !== 'ativo') {
+      if (!item.produto || item.produto.status !== "ativo") {
         throw new BadRequestException(
           `Produto "${item.produto?.nome ?? item.idCarrinhoItem}" não está mais disponível`,
         );
@@ -100,11 +102,13 @@ export class PedidoService implements OnModuleInit {
     }
 
     const statusInicial = await this.statusRepo.findOneBy({
-      nome: 'Confirmado',
+      nome: "Confirmado",
     });
 
     if (!statusInicial) {
-      throw new NotFoundException('Status inicial "Confirmado" não configurado');
+      throw new NotFoundException(
+        'Status inicial "Confirmado" não configurado',
+      );
     }
 
     const calculo = await this.promocaoService.calcularDescontos({
@@ -125,69 +129,73 @@ export class PedidoService implements OnModuleInit {
       calculo.promocoesAplicadas.length > 0
         ? ` (promoções aplicadas: ${calculo.promocoesAplicadas
             .map((p) => (p.codigo ? `${p.titulo} [${p.codigo}]` : p.titulo))
-            .join(', ')})`
-        : '';
+            .join(", ")})`
+        : "";
 
-    const idPedidoCriado = await this.dataSource.transaction(async (manager) => {
-      const pedido = manager.create(Pedido, {
-        usuario: carrinho.usuario,
-        status: statusInicial,
-        subtotal: subtotal.toFixed(2),
-        valorDesconto: valorDesconto.toFixed(2),
-        frete: frete.toFixed(2),
-        valorTotal: valorTotal.toFixed(2),
-        observacao: dto.observacao ?? null,
-      });
-
-      const pedidoSalvo = await manager.save(Pedido, pedido);
-
-      const itensPedido = carrinho.itens.map((item, idx) => {
-        const calcItem = calculo.itens[idx];
-        const precoUnit = calcItem?.precoUnitario ?? Number(item.produto.precoVenda);
-        const descontoItem = calcItem?.descontoTotalItem ?? 0;
-        const totalItem =
-          calcItem?.valorTotalItem ?? Math.max(0, precoUnit * item.quantidade - descontoItem);
-
-        return manager.create(ItemPedido, {
-          pedido: pedidoSalvo,
-          produto: item.produto,
-          nomeProdutoSnapshot: item.produto.nome,
-          skuSnapshot: item.produto.sku ?? null,
-          quantidade: item.quantidade,
-          precoUnitarioSnapshot: precoUnit.toFixed(2),
-          desconto: descontoItem.toFixed(2),
-          valorTotal: totalItem.toFixed(2),
+    const idPedidoCriado = await this.dataSource.transaction(
+      async (manager) => {
+        const pedido = manager.create(Pedido, {
+          usuario: carrinho.usuario,
+          status: statusInicial,
+          subtotal: subtotal.toFixed(2),
+          valorDesconto: valorDesconto.toFixed(2),
+          frete: frete.toFixed(2),
+          valorTotal: valorTotal.toFixed(2),
+          observacao: dto.observacao ?? null,
         });
-      });
 
-      await manager.save(ItemPedido, itensPedido);
+        const pedidoSalvo = await manager.save(Pedido, pedido);
 
-      // Baixa de estoque dos produtos comprados
-      for (const item of carrinho.itens) {
-        await manager.decrement(
-          Produto,
-          { idProduto: item.produto.idProduto },
-          'estoque',
-          item.quantidade,
-        );
-      }
+        const itensPedido = carrinho.itens.map((item, idx) => {
+          const calcItem = calculo.itens[idx];
+          const precoUnit =
+            calcItem?.precoUnitario ?? Number(item.produto.precoVenda);
+          const descontoItem = calcItem?.descontoTotalItem ?? 0;
+          const totalItem =
+            calcItem?.valorTotalItem ??
+            Math.max(0, precoUnit * item.quantidade - descontoItem);
 
-      // Histórico inicial
-      const historicoInicial = manager.create(HistoricoStatus, {
-        pedido: pedidoSalvo,
-        status: statusInicial,
-        usuarioResponsavel: carrinho.usuario,
-        observacao: `Pedido confirmado a partir do carrinho${resumoPromos}`,
-      });
-      await manager.save(HistoricoStatus, historicoInicial);
+          return manager.create(ItemPedido, {
+            pedido: pedidoSalvo,
+            produto: item.produto,
+            nomeProdutoSnapshot: item.produto.nome,
+            skuSnapshot: item.produto.sku ?? null,
+            quantidade: item.quantidade,
+            precoUnitarioSnapshot: precoUnit.toFixed(2),
+            desconto: descontoItem.toFixed(2),
+            valorTotal: totalItem.toFixed(2),
+          });
+        });
 
-      // Esvazia o carrinho do usuário
-      await manager.delete(CarrinhoItem, {
-        carrinho: { idCarrinho: carrinho.idCarrinho },
-      });
+        await manager.save(ItemPedido, itensPedido);
 
-      return pedidoSalvo.idPedido;
-    });
+        // Baixa de estoque dos produtos comprados
+        for (const item of carrinho.itens) {
+          await manager.decrement(
+            Produto,
+            { idProduto: item.produto.idProduto },
+            "estoque",
+            item.quantidade,
+          );
+        }
+
+        // Histórico inicial
+        const historicoInicial = manager.create(HistoricoStatus, {
+          pedido: pedidoSalvo,
+          status: statusInicial,
+          usuarioResponsavel: carrinho.usuario,
+          observacao: `Pedido confirmado a partir do carrinho${resumoPromos}`,
+        });
+        await manager.save(HistoricoStatus, historicoInicial);
+
+        // Esvazia o carrinho do usuário
+        await manager.delete(CarrinhoItem, {
+          carrinho: { idCarrinho: carrinho.idCarrinho },
+        });
+
+        return pedidoSalvo.idPedido;
+      },
+    );
 
     return this.findOne(idPedidoCriado, usuarioId, true);
   }
@@ -198,18 +206,18 @@ export class PedidoService implements OnModuleInit {
     return this.pedidoRepo.find({
       where: { usuario: { idUsuario: usuarioId } },
       relations: [
-        'status',
-        'itens',
-        'itens.produto',
-        'itens.produto.imagens',
-        'itens.produto.fornecedor',
-        'historicoStatus',
-        'historicoStatus.status',
+        "status",
+        "itens",
+        "itens.produto",
+        "itens.produto.imagens",
+        "itens.produto.fornecedor",
+        "historicoStatus",
+        "historicoStatus.status",
       ],
       order: {
-        dataPedido: 'DESC',
+        dataPedido: "DESC",
         historicoStatus: {
-          dataHora: 'ASC',
+          dataHora: "ASC",
         },
       },
     });
@@ -220,24 +228,26 @@ export class PedidoService implements OnModuleInit {
     usuarioId?: string;
   }): Promise<Pedido[]> {
     const qb = this.pedidoRepo
-      .createQueryBuilder('pedido')
-      .leftJoinAndSelect('pedido.usuario', 'usuario')
-      .leftJoinAndSelect('pedido.status', 'status')
-      .leftJoinAndSelect('pedido.itens', 'itens')
-      .leftJoinAndSelect('itens.produto', 'produto')
-      .leftJoinAndSelect('pedido.historicoStatus', 'historico')
-      .leftJoinAndSelect('historico.status', 'historicoStatus')
-      .orderBy('pedido.dataPedido', 'DESC')
-      .addOrderBy('historico.dataHora', 'ASC');
+      .createQueryBuilder("pedido")
+      .leftJoinAndSelect("pedido.usuario", "usuario")
+      .leftJoinAndSelect("pedido.status", "status")
+      .leftJoinAndSelect("pedido.itens", "itens")
+      .leftJoinAndSelect("itens.produto", "produto")
+      .leftJoinAndSelect("produto.fornecedor", "fornecedor")
+      .leftJoinAndSelect("pedido.pagamentos", "pagamentos")
+      .leftJoinAndSelect("pedido.historicoStatus", "historico")
+      .leftJoinAndSelect("historico.status", "historicoStatus")
+      .orderBy("pedido.dataPedido", "DESC")
+      .addOrderBy("historico.dataHora", "ASC");
 
     if (filtros?.statusId) {
-      qb.andWhere('status.idStatus = :statusId', {
+      qb.andWhere("status.idStatus = :statusId", {
         statusId: filtros.statusId,
       });
     }
 
     if (filtros?.usuarioId) {
-      qb.andWhere('usuario.idUsuario = :usuarioId', {
+      qb.andWhere("usuario.idUsuario = :usuarioId", {
         usuarioId: filtros.usuarioId,
       });
     }
@@ -253,19 +263,19 @@ export class PedidoService implements OnModuleInit {
     const pedido = await this.pedidoRepo.findOne({
       where: { idPedido },
       relations: [
-        'usuario',
-        'status',
-        'itens',
-        'itens.produto',
-        'itens.produto.imagens',
-        'itens.produto.fornecedor',
-        'historicoStatus',
-        'historicoStatus.status',
-        'historicoStatus.usuarioResponsavel',
+        "usuario",
+        "status",
+        "itens",
+        "itens.produto",
+        "itens.produto.imagens",
+        "itens.produto.fornecedor",
+        "historicoStatus",
+        "historicoStatus.status",
+        "historicoStatus.usuarioResponsavel",
       ],
       order: {
         historicoStatus: {
-          dataHora: 'ASC',
+          dataHora: "ASC",
         },
       },
     });
@@ -275,7 +285,9 @@ export class PedidoService implements OnModuleInit {
     }
 
     if (!isAdmin && pedido.usuario.idUsuario !== usuarioId) {
-      throw new ForbiddenException('Você não tem permissão para acessar este pedido');
+      throw new ForbiddenException(
+        "Você não tem permissão para acessar este pedido",
+      );
     }
 
     return pedido;
@@ -290,13 +302,13 @@ export class PedidoService implements OnModuleInit {
   ): Promise<Pedido> {
     if (!dto.idStatus && !dto.nomeStatus) {
       throw new BadRequestException(
-        'Informe idStatus ou nomeStatus para atualizar o status do pedido',
+        "Informe idStatus ou nomeStatus para atualizar o status do pedido",
       );
     }
 
     const pedido = await this.pedidoRepo.findOne({
       where: { idPedido },
-      relations: ['status', 'itens', 'itens.produto'],
+      relations: ["status", "itens", "itens.produto"],
     });
 
     if (!pedido) {
@@ -314,7 +326,9 @@ export class PedidoService implements OnModuleInit {
       : await this.statusRepo.findOneBy({ nome: dto.nomeStatus });
 
     if (!statusDestino || !statusDestino.ativo) {
-      throw new NotFoundException('Status de destino não encontrado ou inativo');
+      throw new NotFoundException(
+        "Status de destino não encontrado ou inativo",
+      );
     }
 
     if (pedido.status) {
@@ -348,12 +362,12 @@ export class PedidoService implements OnModuleInit {
       await manager.save(Pedido, pedido);
 
       // Se o pedido foi cancelado, estorna o estoque dos produtos
-      if (statusDestino.nome === 'Cancelado') {
+      if (statusDestino.nome === "Cancelado") {
         for (const item of pedido.itens) {
           await manager.increment(
             Produto,
             { idProduto: item.produto.idProduto },
-            'estoque',
+            "estoque",
             item.quantidade,
           );
         }
