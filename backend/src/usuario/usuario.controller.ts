@@ -1,7 +1,7 @@
 import { Controller, Get, Body, Patch, Param, Delete, Req } from '@nestjs/common';
 import { UsuarioService } from './usuario.service';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
-import { Admin } from 'auth/decorators/role.decorator';
+import { Admin } from '../auth/decorators/role.decorator';
 import { AdminUpdateUsuarioDto } from './dto/Admin-update-usuario.dto';
 
 @Controller('usuario')

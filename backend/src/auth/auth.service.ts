@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { CreateAccountDto } from "./dto/create-account.dto";
 import { LoginAccountDto } from "./dto/login-account.dto";
-import { UsuarioService } from "usuario/usuario.service";
+import { UsuarioService } from "../usuario/usuario.service";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 @Injectable()
@@ -28,6 +28,9 @@ export class AuthService {
       dto.email,
     );
     if (!usuario) throw new UnauthorizedException("email ou senha invalidos");
+    if (usuario.status !== "ativo") {
+      throw new UnauthorizedException("Usuário inativo");
+    }
     const senha_valida = await bcrypt.compare(dto.senha, usuario.senhaHash);
     if (!senha_valida)
       throw new UnauthorizedException("email ou senha invalidos");

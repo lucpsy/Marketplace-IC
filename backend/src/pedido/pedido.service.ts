@@ -20,7 +20,6 @@ import { CreatePedidoDto } from "./dto/create-pedido.dto";
 import { UpdateStatusPedidoDto } from "./dto/update-status-pedido.dto";
 import { seedStatusPedido } from "../database/seeds/seed-status-pedido";
 import { PromocaoService } from "../promo/promo.service";
-import { seedCatalogo } from "database/seeds/seed-catalogo";
 
 @Injectable()
 export class PedidoService implements OnModuleInit {
@@ -47,7 +46,6 @@ export class PedidoService implements OnModuleInit {
 
   async onModuleInit() {
     await seedStatusPedido(this.statusRepo, this.transicaoRepo);
-    await seedCatalogo(this.dataSource);
   }
 
   /* -------------------------------------------------------- STATUS */
