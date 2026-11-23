@@ -191,6 +191,7 @@ export function AdminControle() {
                 <th className="px-4 py-3 font-medium">Data</th>
                 <th className="px-4 py-3 font-medium">Comprador</th>
                 <th className="px-4 py-3 font-medium">Método</th>
+                <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 text-right font-medium">Total</th>
                 <th className="px-4 py-3 print:hidden" />
               </tr>
@@ -215,6 +216,11 @@ export function AdminControle() {
                       </td>
                       <td className="px-4 py-3">{o.buyer}</td>
                       <td className="px-4 py-3 text-muted">{o.method}</td>
+                      <td className="px-4 py-3">
+                        <StatusPill
+                          status={o.fulfillments[0]?.status ?? "Confirmado"}
+                        />
+                      </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right font-mono">
                         {brl(o.total)}
                       </td>

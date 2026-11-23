@@ -176,7 +176,7 @@ export function AppStore({ children }: { children: ReactNode }) {
     { idCategoria: string; nome: string }[]
   >([]);
   const [promotions, setPromotions] = useState<Promotion[]>(PROMOTIONS);
-  const [txns, setTxns] = useState<Txn[]>(TRANSACTIONS);
+  const [txns, setTxns] = useState<Txn[]>([]);
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [userCarts, setUserCarts] = useState<Record<string, CartLine[]>>({});
@@ -324,25 +324,36 @@ export function AppStore({ children }: { children: ReactNode }) {
       });
       if (!res.ok) return;
       const data = await res.json();
+
       if (Array.isArray(data)) {
-        setOrders(data.map(mapBackendOrder));
+        const mappedOrders = data.map(mapBackendOrder);
+        setOrders(mappedOrders);
+
+        // Transforma os pedidos reais do banco em lançamentos na Transparência
+        const vendasTxns: Txn[] = mappedOrders.map((o) => ({
+          id: `ped-${o.id}`,
+          date: o.date,
+          order: o.id,
+          description: `Pedido ${o.id} — ${o.buyer}`,
+          category: "Vendas",
+          method: o.method,
+          amount: o.total,
+          status: o.fulfillments.some((f) =>
+            f.status.toLowerCase().includes("cancel"),
+          )
+            ? "Estornado"
+            : "Concluído",
+        }));
+
+        setTxns((prev) => {
+          const repassesLocais = prev.filter((t) => t.category === "Repasse");
+          return [...vendasTxns, ...repassesLocais];
+        });
       }
     } catch (err) {
       console.error("Erro ao buscar pedidos reais:", err);
     }
   }
-
-  useEffect(() => {
-    refreshCatalog();
-
-    const savedUser = localStorage.getItem("diacom_user");
-    if (savedUser) {
-      const parsed: MockUser = JSON.parse(savedUser);
-      setUser(parsed);
-      setRoleState(parsed.role);
-      refreshOrders(parsed.role);
-    }
-  }, []);
 
   async function refreshCatalog() {
     try {
