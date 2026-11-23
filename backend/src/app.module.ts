@@ -12,7 +12,7 @@ import { CarrinhoModule } from './carrinho/carrinho.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt.auth.guard';
-import { AuthModule } from 'auth/auth.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [

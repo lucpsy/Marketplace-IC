@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Produto } from './entities/produto.entity';
 import { Categoria } from './entities/categoria.entity';
 import { ProdutoImagem } from './entities/produto-imagem.entity';
@@ -9,10 +9,13 @@ import { CreateProdutoDto } from './dto/create-produto.dto';
 import { UpdateProdutoDto } from './dto/update-produto.dto';
 import { CreateCategoriaDto, UpdateCategoriaDto } from './dto/create-categoria.dto';
 import { PromocaoService } from '../promo/promo.service';
+import { seedCatalogo } from '../database/seeds/seed-catalogo';
 
 @Injectable()
-export class CatalogoService {
+export class CatalogoService implements OnModuleInit {
   constructor(
+    private readonly dataSource: DataSource,
+
     @InjectRepository(Produto)
     private readonly produtoRepo: Repository<Produto>,
 
@@ -27,6 +30,10 @@ export class CatalogoService {
 
     private readonly promocaoService: PromocaoService,
   ) {}
+
+  async onModuleInit() {
+    await seedCatalogo(this.dataSource);
+  }
 
   /* -------------------------------------------------------- PRODUTOS */
 

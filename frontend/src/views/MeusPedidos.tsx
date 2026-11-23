@@ -1,16 +1,17 @@
-"use client"
-import { useStore } from "@/lib/store"
-import { brl, type Order, type Fulfillment } from "@/lib/data"
-import { OrderStepper } from "@/components/OrderStepper"
-import { StatusPill, PinBadge } from "@/components/Shared"
-import { useRouter } from "next/navigation"
+"use client";
+import { useMemo } from "react";
+import { useStore } from "@/lib/store";
+import { brl, type Order, type Fulfillment } from "@/lib/data";
+import { OrderStepper } from "@/components/OrderStepper";
+import { StatusPill, PinBadge } from "@/components/Shared";
+import { useRouter } from "next/navigation";
 
-type FlowEntry = { order: Order; fulfillment: Fulfillment }
+type FlowEntry = { order: Order; fulfillment: Fulfillment };
 
 export function MeusPedidos() {
-  const router = useRouter()
-  const onGoLoja = () => router.push("/")
-  const { orders, suppliers, user } = useStore()
+  const router = useRouter();
+  const onGoLoja = () => router.push("/");
+  const { orders, suppliers, user } = useStore();
 
   // Filtra apenas pedidos associados ao usuário logado
   const mine = user
@@ -19,20 +20,30 @@ export function MeusPedidos() {
           (o.buyerId && o.buyerId === user.id) ||
           o.buyer.trim().toLowerCase() === user.name.trim().toLowerCase(),
       )
-    : []
+    : [];
 
   // Agrupa fulfillments por fornecedor cadastrado na store.
-  const bySupplier = suppliers
-    .map((supplier) => {
-      const entries: FlowEntry[] = []
-      for (const order of mine) {
-        for (const f of order.fulfillments) {
-          if (f.supplierId === supplier.id) entries.push({ order, fulfillment: f })
+  // Agrupa fulfillments por fornecedor cadastrado na store
+  const bySupplier = useMemo(() => {
+    const groups = suppliers
+      .map((supplier) => {
+        const entries: FlowEntry[] = [];
+        for (const order of mine) {
+          for (const f of order.fulfillments) {
+            if (
+              f.supplierId === supplier.id ||
+              f.supplierId.toLowerCase() === supplier.name.toLowerCase()
+            ) {
+              entries.push({ order, fulfillment: f });
+            }
+          }
         }
-      }
-      return { supplier, entries }
-    })
-    .filter((g) => g.entries.length > 0)
+        return { supplier, entries };
+      })
+      .filter((g) => g.entries.length > 0);
+
+    return groups;
+  }, [suppliers, mine]);
 
   // Caso o usuário não esteja logado
   if (!user) {
@@ -44,7 +55,8 @@ export function MeusPedidos() {
             Meus pedidos
           </h1>
           <p className="max-w-sm text-sm text-muted">
-            Faça login para acompanhar o status e o código PIN de retirada das suas encomendas.
+            Faça login para acompanhar o status e o código PIN de retirada das
+            suas encomendas.
           </p>
         </div>
 
@@ -53,9 +65,12 @@ export function MeusPedidos() {
             🔒
           </div>
           <div>
-            <h3 className="font-display text-lg font-bold">Nenhuma conta conectada</h3>
+            <h3 className="font-display text-lg font-bold">
+              Nenhuma conta conectada
+            </h3>
             <p className="mt-1 max-w-md text-sm text-muted">
-              Entre com sua conta institucional para visualizar seus pedidos realizados, histórico e código PIN de retirada.
+              Entre com sua conta institucional para visualizar seus pedidos
+              realizados, histórico e código PIN de retirada.
             </p>
           </div>
           <div className="mt-2 flex items-center gap-3">
@@ -74,7 +89,7 @@ export function MeusPedidos() {
           </div>
         </div>
       </section>
-    )
+    );
   }
 
   return (
@@ -86,12 +101,14 @@ export function MeusPedidos() {
             Meus pedidos
           </h1>
           <p className="mt-1 text-xs text-muted">
-            Pedidos de <span className="font-semibold text-cyan">{user.name}</span> ({user.email})
+            Pedidos de{" "}
+            <span className="font-semibold text-cyan">{user.name}</span> (
+            {user.email})
           </p>
         </div>
         <p className="max-w-sm text-sm text-muted">
-          Cada fornecedor tem seu próprio fluxo de preparo. Use o PIN do pedido para
-          retirar em qualquer um deles.
+          Cada fornecedor tem seu próprio fluxo de preparo. Use o PIN do pedido
+          para retirar em qualquer um deles.
         </p>
       </div>
 
@@ -131,7 +148,9 @@ export function MeusPedidos() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-mono text-sm text-cyan">{order.id}</p>
+                        <p className="font-mono text-sm text-cyan">
+                          {order.id}
+                        </p>
                         <p className="mt-0.5 label text-muted">
                           {new Date(order.date).toLocaleDateString("pt-BR", {
                             day: "2-digit",
@@ -150,7 +169,9 @@ export function MeusPedidos() {
                           className="flex items-center justify-between text-sm"
                         >
                           <span className="text-fg">{it.name}</span>
-                          <span className="font-mono text-muted">{it.qty}×</span>
+                          <span className="font-mono text-muted">
+                            {it.qty}×
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -176,5 +197,5 @@ export function MeusPedidos() {
         </div>
       )}
     </section>
-  )
+  );
 }

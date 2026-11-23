@@ -259,34 +259,7 @@ export type Coupon = {
   minSubtotal?: number;
 };
 
-export const COUPONS: Coupon[] = [
-  {
-    code: "CALOURO10",
-    kind: "percent",
-    value: 10,
-    label: "10% para calouros 2026.1",
-  },
-  {
-    code: "DIACOM15",
-    kind: "percent",
-    value: 15,
-    label: "15% na semana da computação",
-    minSubtotal: 100,
-  },
-  {
-    code: "FRETEGRATIS",
-    kind: "shipping",
-    value: 0,
-    label: "Retirada/entrega sem taxa",
-  },
-  {
-    code: "MENOS20",
-    kind: "fixed",
-    value: 20,
-    label: "R$ 20 off em compras acima de R$ 150",
-    minSubtotal: 150,
-  },
-];
+export const COUPONS: Coupon[] = [];
 
 /* ------------------------------------------------------------- Transactions */
 
@@ -303,130 +276,7 @@ export type Txn = {
   validatorRole?: string; // Cargo ou conselho validador (ex.: Conselho Fiscal DIACOM)
 };
 
-export const TRANSACTIONS: Txn[] = [
-  {
-    id: "t1",
-    date: "2026-09-08",
-    order: "#DC-1042",
-    description: "Venda — Moletom IC+ (2un)",
-    category: "Vendas",
-    method: "Pix",
-    amount: 258,
-    status: "Concluído",
-  },
-  {
-    id: "t2",
-    date: "2026-09-08",
-    order: "#DC-1042",
-    description: "Taxa de processamento Pix",
-    category: "Taxa",
-    method: "Pix",
-    amount: -2.58,
-    status: "Concluído",
-  },
-  {
-    id: "t3",
-    date: "2026-09-07",
-    order: "#DC-1041",
-    description: "Venda — Camisa DIACOM (3un)",
-    category: "Vendas",
-    method: "Cartão",
-    amount: 165,
-    status: "Concluído",
-  },
-  {
-    id: "t4",
-    date: "2026-09-07",
-    order: "#DC-1041",
-    description: "Taxa cartão de crédito",
-    category: "Taxa",
-    method: "Cartão",
-    amount: -6.6,
-    status: "Concluído",
-  },
-  {
-    id: "t5",
-    date: "2026-09-06",
-    order: "#DC-1040",
-    description: "Venda — Kit calouro (caneca+adesivos)",
-    category: "Vendas",
-    method: "Pix",
-    amount: 57,
-    status: "Concluído",
-  },
-  {
-    id: "t6",
-    date: "2026-09-05",
-    order: "—",
-    description: "Reposição de estoque — Camisas",
-    category: "Custo",
-    method: "Pix",
-    amount: -840,
-    status: "Concluído",
-  },
-  {
-    id: "t7",
-    date: "2026-09-04",
-    order: "#DC-1039",
-    description: "Venda — Garrafa térmica (1un)",
-    category: "Vendas",
-    method: "Dinheiro",
-    amount: 68,
-    status: "Concluído",
-  },
-  {
-    id: "t8",
-    date: "2026-09-03",
-    order: "#DC-1038",
-    description: "Venda — Boné ICup (2un)",
-    category: "Vendas",
-    method: "Cartão",
-    amount: 98,
-    status: "Processando",
-  },
-  {
-    id: "t9",
-    date: "2026-09-02",
-    order: "#DC-1037",
-    description: "Estorno — Ecobag (defeito)",
-    category: "Vendas",
-    method: "Pix",
-    amount: -32,
-    status: "Estornado",
-  },
-  {
-    id: "t10",
-    date: "2026-09-01",
-    order: "—",
-    description: "Repasse p/ evento IChampions",
-    category: "Repasse",
-    method: "Pix",
-    amount: -300,
-    status: "Concluído",
-    validator: "Lucas Amorim",
-    validatorRole: "Diretor Financeiro DIACOM",
-  },
-  {
-    id: "t11",
-    date: "2026-08-30",
-    order: "#DC-1036",
-    description: "Venda — Pack de adesivos (8un)",
-    category: "Vendas",
-    method: "Pix",
-    amount: 144,
-    status: "Concluído",
-  },
-  {
-    id: "t12",
-    date: "2026-08-29",
-    order: "#DC-1035",
-    description: "Venda — Cadernos Dev Grid (4un)",
-    category: "Vendas",
-    method: "Cartão",
-    amount: 108,
-    status: "Concluído",
-  },
-];
+export const TRANSACTIONS: Txn[] = [];
 
 /* ------------------------------------------------------------------ Pedidos */
 
@@ -442,6 +292,13 @@ export const ORDER_STAGES: OrderStatus[] = [
   "Pronto para retirada",
   "Entregue",
 ];
+
+export type PaymentStatus =
+  | "Aguardando comprovante"
+  | "Em análise"
+  | "Pago"
+  | "Estorno solicitado"
+  | "Estornado";
 
 export type OrderItem = { productId?: string; name: string; qty: number };
 
@@ -462,71 +319,7 @@ export type Order = {
   fulfillments: Fulfillment[];
 };
 
-export const INITIAL_ORDERS: Order[] = [
-  {
-    id: "#DC-1042",
-    date: "2026-09-08",
-    buyer: "Lucas Tenório",
-    buyerId: "u-cliente",
-    total: 258,
-    method: "Pix",
-    pin: "4827",
-    fulfillments: [
-      {
-        supplierId: "confeccoes-ic",
-        items: [
-          { productId: "moletom-ic", name: "Moletom IC+ Canguru", qty: 2 },
-        ],
-        status: "Pronto para retirada",
-      },
-    ],
-  },
-  {
-    id: "#DC-1041",
-    date: "2026-09-07",
-    buyer: "Lucas Tenório",
-    buyerId: "u-cliente",
-    total: 197,
-    method: "Cartão",
-    pin: "1593",
-    fulfillments: [
-      {
-        supplierId: "confeccoes-ic",
-        items: [
-          { productId: "camisa-diacom", name: "Camisa DIACOM 2026", qty: 3 },
-        ],
-        status: "Em separação",
-      },
-      {
-        supplierId: "grafica-campus",
-        items: [{ productId: "caderno-dev", name: "Caderno Dev Grid", qty: 1 }],
-        status: "Confirmado",
-      },
-    ],
-  },
-  {
-    id: "#DC-1039",
-    date: "2026-09-04",
-    buyer: "Lucas Tenório",
-    buyerId: "u-cliente",
-    total: 68,
-    method: "Dinheiro",
-    pin: "7210",
-    fulfillments: [
-      {
-        supplierId: "brindes-ufal",
-        items: [
-          {
-            productId: "garrafa-termica",
-            name: "Garrafa Térmica IC 500ml",
-            qty: 1,
-          },
-        ],
-        status: "Entregue",
-      },
-    ],
-  },
-];
+export const INITIAL_ORDERS: Order[] = [];
 
 // Prazo da campanha de ofertas atual da loja (venda por encomenda).
 export const OFFER_DEADLINE = "2026-09-20T23:59:59";

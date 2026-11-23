@@ -15,7 +15,8 @@
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
     "seed:admin": "ts-node src/database/seeds/seed-admin.ts",
     "seed:fornecedores": "ts-node src/database/seeds/seed-fornecedores.ts",
-    "seed:status": "ts-node src/database/seeds/seed-status-pedido.ts"
+    "seed:status": "ts-node src/database/seeds/seed-status-pedido.ts",
+    "seed:catalogo": "ts-node src/database/seeds/seed-catalogo.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

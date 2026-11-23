@@ -1,89 +1,101 @@
-"use client"
-import { useMemo, useState } from "react"
-import { brl, effectivePrice, type Coupon } from "@/lib/data"
-import { useStore } from "@/lib/store"
-import { QtyBtn, Row, CartIcon, PinBadge } from "./Shared"
-import { useRouter } from "next/navigation"
+"use client";
+import { useMemo, useState } from "react";
+import { brl, effectivePrice, type Coupon } from "@/lib/data";
+import { useStore } from "@/lib/store";
+import { QtyBtn, Row, CartIcon, PinBadge } from "./Shared";
+import { useRouter } from "next/navigation";
 
 export function CartDrawer() {
-  const router = useRouter()
-  const onSeeOrders = () => router.push("/meus-pedidos")
-  const { cart, setQty, checkout, promotions, coupons, cartOpen, setCartOpen } = useStore()
-  const onClose = () => setCartOpen(false)
+  const router = useRouter();
+  const onSeeOrders = () => router.push("/meus-pedidos");
+  const { cart, setQty, checkout, promotions, coupons, cartOpen, setCartOpen } =
+    useStore();
+  const onClose = () => setCartOpen(false);
 
-  const [code, setCode] = useState("")
-  const [coupon, setCoupon] = useState<Coupon | null>(null)
-  const [error, setError] = useState("")
-  const [step, setStep] = useState<"cart" | "pay" | "processing" | "done">("cart")
-  const [payMethod, setPayMethod] = useState<"Pix" | "Cartão">("Pix")
-  const [placed, setPlaced] = useState<{ id: string; pin: string } | null>(null)
+  const [code, setCode] = useState("");
+  const [coupon, setCoupon] = useState<Coupon | null>(null);
+  const [error, setError] = useState("");
+  const [step, setStep] = useState<"cart" | "pay" | "processing" | "done">(
+    "cart",
+  );
+  const [payMethod, setPayMethod] = useState<"Pix" | "Cartão">("Pix");
+  const [placed, setPlaced] = useState<{ id: string; pin: string } | null>(
+    null,
+  );
 
   const subtotal = cart.reduce(
     (s, l) => s + effectivePrice(l.product, promotions).current * l.qty,
     0,
-  )
-  const baseShipping = 0
+  );
+  const baseShipping = 0;
 
   const discount = useMemo(() => {
-    if (!coupon) return 0
-    if (coupon.kind === "percent") return (subtotal * coupon.value) / 100
-    if (coupon.kind === "fixed") return Math.min(coupon.value, subtotal)
-    return 0
-  }, [coupon, subtotal])
+    if (!coupon) return 0;
+    if (coupon.kind === "percent") return (subtotal * coupon.value) / 100;
+    if (coupon.kind === "fixed") return Math.min(coupon.value, subtotal);
+    return 0;
+  }, [coupon, subtotal]);
 
-  const shipping = coupon?.kind === "shipping" ? 0 : baseShipping
-  const total = Math.max(0, subtotal - discount) + shipping
+  const shipping = coupon?.kind === "shipping" ? 0 : baseShipping;
+  const total = Math.max(0, subtotal - discount) + shipping;
 
   function applyCoupon() {
-    setError("")
+    setError("");
     const found = coupons.find(
       (c) => c.code.toUpperCase() === code.trim().toUpperCase(),
-    )
+    );
     if (!found) {
-      setCoupon(null)
-      setError("Cupom inválido.")
-      return
+      setCoupon(null);
+      setError("Cupom inválido.");
+      return;
     }
     if (found.minSubtotal && subtotal < found.minSubtotal) {
-      setCoupon(null)
-      setError(`Válido a partir de ${brl(found.minSubtotal)}.`)
-      return
+      setCoupon(null);
+      setError(`Válido a partir de ${brl(found.minSubtotal)}.`);
+      return;
     }
-    setCoupon(found)
+    setCoupon(found);
   }
 
   function pay() {
-    setStep("processing")
-    window.setTimeout(() => {
-      const res = checkout({
-        items: cart,
-        total,
-        method: payMethod,
-        couponCode: coupon?.code,
-      })
-      setPlaced(res)
-      setStep("done")
-    }, 1900)
+    setStep("processing");
+    window.setTimeout(async () => {
+      try {
+        const res = await checkout({
+          items: cart,
+          total,
+          method: payMethod,
+          couponCode: coupon?.code,
+        });
+        setPlaced(res);
+        setStep("done");
+      } catch (err: any) {
+        alert(err.message || "Erro ao finalizar o pedido.");
+        setStep("review"); // ou o nome do step inicial do seu carrinho (ex: "cart" ou "checkout")
+      }
+    }, 1900);
   }
 
   function reset() {
-    setStep("cart")
-    setCoupon(null)
-    setCode("")
-    setError("")
-    setPlaced(null)
+    setStep("cart");
+    setCoupon(null);
+    setCode("");
+    setError("");
+    setPlaced(null);
   }
 
   return (
     <>
       <div
         onClick={onClose}
-        className={`fixed inset-0 z-40 bg-black/60 transition-opacity ${cartOpen ? "opacity-100" : "pointer-events-none opacity-0"
-          }`}
+        className={`fixed inset-0 z-40 bg-black/60 transition-opacity ${
+          cartOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
       />
       <aside
-        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-line bg-panel transition-transform duration-300 ${cartOpen ? "translate-x-0" : "translate-x-full"
-          }`}
+        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-line bg-panel transition-transform duration-300 ${
+          cartOpen ? "translate-x-0" : "translate-x-full"
+        }`}
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <div>
@@ -113,19 +125,21 @@ export function CartDrawer() {
             <div className="grid size-14 place-items-center rounded-full bg-cyan/15 text-2xl text-cyan">
               ✓
             </div>
-            <h3 className="font-display text-xl font-bold">Pagamento aprovado!</h3>
+            <h3 className="font-display text-xl font-bold">
+              Pagamento aprovado!
+            </h3>
             <p className="font-mono text-sm text-cyan">{placed.id}</p>
             <PinBadge pin={placed.pin} />
             <p className="text-sm text-muted">
-              Guarde o PIN — ele é necessário para retirar seu pedido em qualquer
-              fornecedor. Acompanhe o preparo em Meus Pedidos.
+              Guarde o PIN — ele é necessário para retirar seu pedido em
+              qualquer fornecedor. Acompanhe o preparo em Meus Pedidos.
             </p>
             <div className="mt-2 flex w-full flex-col gap-2">
               <button
                 onClick={() => {
-                  onSeeOrders()
-                  onClose()
-                  reset()
+                  onSeeOrders();
+                  onClose();
+                  reset();
                 }}
                 className="w-full rounded-xl bg-cyan py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5]"
               >
@@ -133,8 +147,8 @@ export function CartDrawer() {
               </button>
               <button
                 onClick={() => {
-                  onClose()
-                  reset()
+                  onClose();
+                  reset();
                 }}
                 className="w-full rounded-xl border border-line py-2.5 text-sm text-fg transition-colors hover:border-muted"
               >
@@ -159,7 +173,7 @@ export function CartDrawer() {
           <>
             <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
               {cart.map((l) => {
-                const price = effectivePrice(l.product, promotions)
+                const price = effectivePrice(l.product, promotions);
                 return (
                   <div
                     key={l.product.id}
@@ -201,7 +215,7 @@ export function CartDrawer() {
                       </div>
                     </div>
                   </div>
-                )
+                );
               })}
 
               {/* Cupom */}
@@ -254,7 +268,9 @@ export function CartDrawer() {
               <div className="my-3 border-t border-line" />
               <div className="flex items-center justify-between">
                 <span className="font-display text-lg font-bold">Total</span>
-                <span className="font-mono text-lg text-cyan">{brl(total)}</span>
+                <span className="font-mono text-lg text-cyan">
+                  {brl(total)}
+                </span>
               </div>
               <button
                 onClick={() => setStep("pay")}
@@ -270,7 +286,7 @@ export function CartDrawer() {
         )}
       </aside>
     </>
-  )
+  );
 }
 
 function PaymentScreen({
@@ -280,14 +296,14 @@ function PaymentScreen({
   onBack,
   onPay,
 }: {
-  total: number
-  method: "Pix" | "Cartão"
-  setMethod: (m: "Pix" | "Cartão") => void
-  onBack: () => void
-  onPay: () => void
+  total: number;
+  method: "Pix" | "Cartão";
+  setMethod: (m: "Pix" | "Cartão") => void;
+  onBack: () => void;
+  onPay: () => void;
 }) {
   const pixCode =
-    "00020126DIACOM-IC-UFAL-PIX5204000053039865802BR6009MACEIO62070503***6304A1F2"
+    "00020126DIACOM-IC-UFAL-PIX5204000053039865802BR6009MACEIO62070503***6304A1F2";
   return (
     <>
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
@@ -296,10 +312,11 @@ function PaymentScreen({
             <button
               key={m}
               onClick={() => setMethod(m)}
-              className={`rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${method === m
+              className={`rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${
+                method === m
                   ? "border-cyan bg-cyan/10 text-cyan"
                   : "border-line text-muted hover:text-fg"
-                }`}
+              }`}
             >
               {m}
               <span className="mt-0.5 block font-mono text-[10px] font-normal opacity-70">
@@ -314,14 +331,19 @@ function PaymentScreen({
             <div className="mx-auto grid size-36 place-items-center rounded-lg bg-fg">
               <QrPlaceholder />
             </div>
-            <p className="mt-3 text-xs text-muted">Escaneie o QR ou copie o código Pix</p>
+            <p className="mt-3 text-xs text-muted">
+              Escaneie o QR ou copie o código Pix
+            </p>
             <p className="mt-2 truncate rounded-lg border border-line bg-ink px-3 py-2 font-mono text-[10px] text-muted">
               {pixCode}
             </p>
           </div>
         ) : (
           <div className="space-y-2.5 rounded-xl border border-line bg-panel-2 p-4">
-            <Field2 label="Número do cartão" placeholder="4000 0000 0000 0000" />
+            <Field2
+              label="Número do cartão"
+              placeholder="4000 0000 0000 0000"
+            />
             <div className="grid grid-cols-2 gap-2.5">
               <Field2 label="Validade" placeholder="MM/AA" />
               <Field2 label="CVV" placeholder="123" />
@@ -351,10 +373,16 @@ function PaymentScreen({
         </div>
       </div>
     </>
-  )
+  );
 }
 
-function Field2({ label, placeholder }: { label: string; placeholder: string }) {
+function Field2({
+  label,
+  placeholder,
+}: {
+  label: string;
+  placeholder: string;
+}) {
   return (
     <label className="block">
       <span className="label text-muted">{label}</span>
@@ -363,7 +391,7 @@ function Field2({ label, placeholder }: { label: string; placeholder: string }) 
         className="mt-1 w-full rounded-lg border border-line bg-ink px-3 py-2 font-mono text-sm outline-none placeholder:text-muted/60 focus:border-cyan"
       />
     </label>
-  )
+  );
 }
 
 function QrPlaceholder() {
@@ -371,16 +399,47 @@ function QrPlaceholder() {
     <svg width="112" height="112" viewBox="0 0 112 112" className="text-ink">
       <rect width="112" height="112" fill="white" />
       {Array.from({ length: 100 }).map((_, i) => {
-        const x = (i % 10) * 11 + 1
-        const y = Math.floor(i / 10) * 11 + 1
-        const on = (i * 7 + Math.floor(i / 10) * 3) % 3 === 0
+        const x = (i % 10) * 11 + 1;
+        const y = Math.floor(i / 10) * 11 + 1;
+        const on = (i * 7 + Math.floor(i / 10) * 3) % 3 === 0;
         return on ? (
-          <rect key={i} x={x} y={y} width="10" height="10" fill="currentColor" />
-        ) : null
+          <rect
+            key={i}
+            x={x}
+            y={y}
+            width="10"
+            height="10"
+            fill="currentColor"
+          />
+        ) : null;
       })}
-      <rect x="1" y="1" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="6" />
-      <rect x="79" y="1" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="6" />
-      <rect x="1" y="79" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="6" />
+      <rect
+        x="1"
+        y="1"
+        width="32"
+        height="32"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="6"
+      />
+      <rect
+        x="79"
+        y="1"
+        width="32"
+        height="32"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="6"
+      />
+      <rect
+        x="1"
+        y="79"
+        width="32"
+        height="32"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="6"
+      />
     </svg>
-  )
+  );
 }
