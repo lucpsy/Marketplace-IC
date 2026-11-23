@@ -1,5 +1,9 @@
-import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  METODOS_PAGAMENTO,
+  MetodoPagamento,
+} from '../../pagamento/dto/create-pagamento.dto';
 
 export class CreatePedidoDto {
   @IsOptional()
@@ -21,4 +25,11 @@ export class CreatePedidoDto {
   @IsNumber({}, { message: 'frete deve ser numérico' })
   @Min(0, { message: 'frete não pode ser negativo' })
   frete?: number;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(METODOS_PAGAMENTO, {
+    message: 'metodoPagamento deve ser pix, cartao ou dinheiro',
+  })
+  metodoPagamento?: MetodoPagamento;
 }

@@ -4,22 +4,23 @@ import {
   Injectable,
   NotFoundException,
   OnModuleInit,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, Repository } from "typeorm";
-import { Pedido } from "./entities/pedido.entity";
-import { ItemPedido } from "./entities/item_pedido.entity";
-import { StatusPedido } from "./entities/status_pedido.entity";
-import { TransicaoStatus } from "./entities/transicao-status.entity";
-import { HistoricoStatus } from "./entities/historico-status.entity";
-import { Carrinho } from "../carrinho/entities/carrinho.entity";
-import { CarrinhoItem } from "../carrinho/entities/carrinho-item.entity";
-import { Produto } from "../catalogo/entities/produto.entity";
-import { Usuario } from "../usuario/entities/usuario.entity";
-import { CreatePedidoDto } from "./dto/create-pedido.dto";
-import { UpdateStatusPedidoDto } from "./dto/update-status-pedido.dto";
-import { seedStatusPedido } from "../database/seeds/seed-status-pedido";
-import { PromocaoService } from "../promo/promo.service";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { Pedido } from './entities/pedido.entity';
+import { ItemPedido } from './entities/item_pedido.entity';
+import { StatusPedido } from './entities/status_pedido.entity';
+import { TransicaoStatus } from './entities/transicao-status.entity';
+import { HistoricoStatus } from './entities/historico-status.entity';
+import { Carrinho } from '../carrinho/entities/carrinho.entity';
+import { CarrinhoItem } from '../carrinho/entities/carrinho-item.entity';
+import { Produto } from '../catalogo/entities/produto.entity';
+import { Usuario } from '../usuario/entities/usuario.entity';
+import { Pagamento } from '../pagamento/entities/pagamento.entity';
+import { CreatePedidoDto } from './dto/create-pedido.dto';
+import { UpdateStatusPedidoDto } from './dto/update-status-pedido.dto';
+import { seedStatusPedido } from '../database/seeds/seed-status-pedido';
+import { PromocaoService } from '../promo/promo.service';
 
 @Injectable()
 export class PedidoService implements OnModuleInit {
@@ -186,10 +187,23 @@ export class PedidoService implements OnModuleInit {
         });
         await manager.save(HistoricoStatus, historicoInicial);
 
-        // Esvazia o carrinho do usuário
-        await manager.delete(CarrinhoItem, {
-          carrinho: { idCarrinho: carrinho.idCarrinho },
-        });
+      // Lançamento financeiro inicial vinculado ao pedido
+      const pagamentoInicial = manager.create(Pagamento, {
+        pedido: pedidoSalvo,
+        tipo: 'entrada',
+        categoria: 'venda',
+        valor: valorTotal.toFixed(2),
+        metodo: dto.metodoPagamento ?? 'pix',
+        status: 'pendente',
+        descricao: `Venda — Pedido #${pedidoSalvo.idPedido}`,
+        ativo: true,
+      });
+      await manager.save(Pagamento, pagamentoInicial);
+
+      // Esvazia o carrinho do usuário
+      await manager.delete(CarrinhoItem, {
+        carrinho: { idCarrinho: carrinho.idCarrinho },
+      });
 
         return pedidoSalvo.idPedido;
       },
@@ -261,15 +275,16 @@ export class PedidoService implements OnModuleInit {
     const pedido = await this.pedidoRepo.findOne({
       where: { idPedido },
       relations: [
-        "usuario",
-        "status",
-        "itens",
-        "itens.produto",
-        "itens.produto.imagens",
-        "itens.produto.fornecedor",
-        "historicoStatus",
-        "historicoStatus.status",
-        "historicoStatus.usuarioResponsavel",
+        'usuario',
+        'status',
+        'itens',
+        'itens.produto',
+        'itens.produto.imagens',
+        'itens.produto.fornecedor',
+        'historicoStatus',
+        'historicoStatus.status',
+        'historicoStatus.usuarioResponsavel',
+        'pagamentos',
       ],
       order: {
         historicoStatus: {
@@ -359,8 +374,8 @@ export class PedidoService implements OnModuleInit {
       pedido.status = statusDestino;
       await manager.save(Pedido, pedido);
 
-      // Se o pedido foi cancelado, estorna o estoque dos produtos
-      if (statusDestino.nome === "Cancelado") {
+      // Se o pedido foi cancelado, estorna o estoque dos produtos e cancela pagamentos pendentes
+      if (statusDestino.nome === 'Cancelado') {
         for (const item of pedido.itens) {
           await manager.increment(
             Produto,
@@ -369,6 +384,14 @@ export class PedidoService implements OnModuleInit {
             item.quantidade,
           );
         }
+
+        await manager
+          .createQueryBuilder()
+          .update(Pagamento)
+          .set({ status: 'cancelado' })
+          .where('id_pedido = :idPedido', { idPedido: pedido.idPedido })
+          .andWhere("status IN ('pendente', 'processando')")
+          .execute();
       }
 
       const registroHistorico = manager.create(HistoricoStatus, {
