@@ -171,7 +171,7 @@ export function AppStore({ children }: { children: ReactNode }) {
   const [offerDeadline, setOfferDeadline] = useState<string>(OFFER_DEADLINE);
   const [suppliers, setSuppliers] = useState<Supplier[]>(SUPPLIERS);
   const [coupons, setCoupons] = useState<Coupon[]>(COUPONS);
-  const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [backendCategories, setBackendCategories] = useState<
     { idCategoria: string; nome: string }[]
   >([]);
@@ -398,7 +398,7 @@ export function AppStore({ children }: { children: ReactNode }) {
 
       if (resProd && resProd.ok) {
         const prods = await resProd.json();
-        if (Array.isArray(prods) && prods.length > 0) {
+        if (Array.isArray(prods)) {
           setProducts(
             prods.map((raw: any) => {
               const imgs = Array.isArray(raw.imagens)
@@ -419,7 +419,9 @@ export function AppStore({ children }: { children: ReactNode }) {
                 price: Number(raw.precoVenda ?? 0),
                 stock: Number(raw.estoque ?? 0),
                 badge: raw.selo || undefined,
-                image: imgs[0] || "https://unsplash.com",
+                image:
+                  imgs[0] ||
+                  "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop&auto=format",
                 images: imgs,
                 blurb: raw.descricao || "",
               };
@@ -431,6 +433,25 @@ export function AppStore({ children }: { children: ReactNode }) {
       console.error("Erro ao carregar catálogo:", err);
     }
   }
+
+  useEffect(() => {
+    refreshCatalog();
+
+    try {
+      const savedToken = localStorage.getItem("diacom_token");
+      const savedUserRaw = localStorage.getItem("diacom_user");
+      if (savedToken && savedUserRaw) {
+        const parsed: MockUser = JSON.parse(savedUserRaw);
+        const restoredRole: Role = parsed.role === "admin" ? "admin" : "cliente";
+        setUser(parsed);
+        setRoleState(restoredRole);
+        refreshOrders(restoredRole);
+      }
+    } catch {
+      localStorage.removeItem("diacom_token");
+      localStorage.removeItem("diacom_user");
+    }
+  }, []);
 
   function setRole(r: Role) {
     setRoleState(r);
@@ -578,23 +599,6 @@ export function AppStore({ children }: { children: ReactNode }) {
     );
   }
 
-  /* Products */
-  function addProduct(p: Product) {
-    setProducts((prev) => [p, ...prev]);
-  }
-  function updateProduct(p: Product) {
-    setProducts((prev) => prev.map((x) => (x.id === p.id ? p : x)));
-  }
-  function removeProduct(id: string) {
-    setProducts((prev) => prev.filter((x) => x.id !== id));
-    setPromotions((prev) =>
-      prev.map((pr) => ({
-        ...pr,
-        productIds: pr.productIds.filter((pid) => pid !== id),
-      })),
-    );
-  }
-
   /* Promotions */
   function addPromotion(p: Promotion) {
     setPromotions((prev) => [p, ...prev]);
@@ -658,40 +662,6 @@ export function AppStore({ children }: { children: ReactNode }) {
     });
   }
 
-  function mapBackendProduct(raw: any): Product {
-    const imgs = Array.isArray(raw.imagens)
-      ? raw.imagens
-          .sort((a: any, b: any) => (a.ordem ?? 0) - (b.ordem ?? 0))
-          .map((img: any) => img.url || img.caminho || img.src)
-          .filter(Boolean)
-      : [];
-
-    const supName =
-      raw.fornecedor?.nomeFantasia || raw.fornecedor?.nomeRazaoSocial || "";
-    const matchedSup = SUPPLIERS.find(
-      (s) => s.name.toLowerCase() === supName.toLowerCase(),
-    );
-
-    return {
-      id: String(raw.idProduto), // <--- AGORA É O ID REAL DO BANCO (bigint)!
-      name: raw.nome,
-      category: Array.isArray(raw.categorias)
-        ? raw.categorias.map((c: any) => c.nome)
-        : ["Geral"],
-      supplierId:
-        matchedSup?.id ||
-        String(raw.fornecedor?.idFornecedor || "confeccoes-ic"),
-      price: Number(raw.precoVenda ?? 0),
-      stock: Number(raw.estoque ?? 0),
-      badge: raw.selo || undefined,
-      image:
-        imgs[0] ||
-        "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop&auto=format",
-      images: imgs,
-      blurb: raw.descricao || "",
-    };
-  }
-
   function clearCart() {
     setCart([]);
     if (user) {
@@ -737,11 +707,13 @@ export function AppStore({ children }: { children: ReactNode }) {
     }
 
     // 3. Cria o pedido real no banco a partir do carrinho salvo
+    const metodoPagamento = p.method === "Cartão" ? "cartao" : "pix";
     const resPedido = await fetch("http://localhost:3001/api/pedido", {
       method: "POST",
       headers,
       body: JSON.stringify({
         codigoCupom: p.couponCode || undefined,
+        metodoPagamento,
       }),
     });
 
@@ -756,8 +728,8 @@ export function AppStore({ children }: { children: ReactNode }) {
     const id = `#DC-${pedidoCriado.idPedido}`;
     const pin = String(pedidoCriado.idPedido).padStart(4, "0").slice(-4);
 
-    // 4. Atualiza a lista de pedidos direto do banco e limpa o carrinho local
-    await refreshOrders(role);
+    // 4. Atualiza pedidos e estoque do catálogo direto do banco e limpa o carrinho local
+    await Promise.all([refreshOrders(role), refreshCatalog()]);
     setCart([]);
     if (user) {
       setUserCarts((all) => ({ ...all, [user.id]: [] }));

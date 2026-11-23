@@ -127,6 +127,12 @@ export class CarrinhoService {
   }
 
   async adicionarItem(usuarioId: string, dto: AddItemCarrinhoDto) {
+    if (!/^\d+$/.test(String(dto.idProduto))) {
+      throw new BadRequestException(
+        `ID de produto inválido: "${dto.idProduto}". Recarregue o catálogo e tente novamente.`,
+      );
+    }
+
     const carrinho = await this.getOrCreateCarrinho(usuarioId);
 
     const produto = await this.produtoRepo.findOneBy({

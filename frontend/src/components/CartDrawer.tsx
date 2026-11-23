@@ -71,7 +71,7 @@ export function CartDrawer() {
         setStep("done");
       } catch (err: any) {
         alert(err.message || "Erro ao finalizar o pedido.");
-        setStep("review"); // ou o nome do step inicial do seu carrinho (ex: "cart" ou "checkout")
+        setStep("pay");
       }
     }, 1900);
   }
