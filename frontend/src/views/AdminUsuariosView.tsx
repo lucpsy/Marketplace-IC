@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
+import { API_URL } from "@/lib/data";
 
 type UsuarioAPI = {
   idUsuario: string;
@@ -50,7 +51,7 @@ export function AdminUsuariosView() {
       try {
         setIsLoading(true);
         setError(null);
-        const res = await fetch("http://localhost:3001/api/usuario", {
+        const res = await fetch(`${API_URL}/usuario`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -82,7 +83,7 @@ export function AdminUsuariosView() {
     try {
       setAtualizandoId(alvo.idUsuario);
       const res = await fetch(
-        `http://localhost:3001/api/usuario/${alvo.idUsuario}`,
+        `${API_URL}/usuario/${alvo.idUsuario}`,
         {
           method: "PATCH",
           headers: {

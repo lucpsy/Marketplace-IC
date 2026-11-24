@@ -58,10 +58,14 @@ export function StatusPill({ status }: { status: string }) {
     Concluído: "border-cyan/40 text-cyan",
     Processando: "border-amber-400/40 text-amber-300",
     Estornado: "border-red-400/40 text-red-300",
-    Confirmado: "border-muted/40 text-muted",
+    "Aguardando confirmação": "border-amber-400/50 bg-amber-400/10 text-amber-300",
+    Confirmado: "border-blue-400/40 bg-blue-400/10 text-blue-300",
     "Em separação": "border-amber-400/40 text-amber-300",
     "Pronto para retirada": "border-cyan/40 text-cyan",
-    Entregue: "border-emerald-400/40 text-emerald-300",
+    Entregue: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+    "Solicitação de reembolso": "border-orange-400/50 bg-orange-400/10 text-orange-300",
+    Reembolsado: "border-cyan/50 bg-cyan/10 text-cyan",
+    Cancelado: "border-red-400/40 bg-red-400/10 text-red-300",
   }
   return (
     <span

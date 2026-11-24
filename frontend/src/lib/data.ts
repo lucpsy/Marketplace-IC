@@ -249,9 +249,21 @@ export function effectivePrice(
   return { current, original: product.price, promo };
 }
 
+export const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+export const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
+
+export function resolveAssetUrl(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  if (/^https?:\/\//i.test(url) || url.startsWith("data:")) return url;
+  return `${API_ORIGIN}${url.startsWith("/") ? "" : "/"}${url}`;
+}
+
 /* ------------------------------------------------------------------ Coupons */
 
 export type Coupon = {
+  id?: string;
   code: string;
   kind: "percent" | "fixed" | "shipping";
   value: number;
@@ -268,12 +280,13 @@ export type Txn = {
   date: string;
   order: string;
   description: string;
-  category: "Vendas" | "Taxa" | "Repasse" | "Custo";
+  category: "Vendas" | "Taxa" | "Repasse" | "Custo" | "Reembolso";
   method: "Pix" | "Cartão" | "Dinheiro";
   amount: number; // positive = entrada, negative = saída
   status: "Concluído" | "Processando" | "Estornado";
   validator?: string; // Nome do validador (ex.: Lucas Amorim, Prof. Dr. Willy Tiengo)
   validatorRole?: string; // Cargo ou conselho validador (ex.: Conselho Fiscal DIACOM)
+  comprovanteUrl?: string;
 };
 
 export const TRANSACTIONS: Txn[] = [];
@@ -281,10 +294,14 @@ export const TRANSACTIONS: Txn[] = [];
 /* ------------------------------------------------------------------ Pedidos */
 
 export type OrderStatus =
+  | "Aguardando confirmação"
   | "Confirmado"
   | "Em separação"
   | "Pronto para retirada"
-  | "Entregue";
+  | "Entregue"
+  | "Solicitação de reembolso"
+  | "Reembolsado"
+  | "Cancelado";
 
 export const ORDER_STAGES: OrderStatus[] = [
   "Confirmado",
@@ -316,6 +333,12 @@ export type Order = {
   total: number;
   method: "Pix" | "Cartão" | "Dinheiro";
   pin: string; // PIN único de retirada por pedido
+  status: OrderStatus;
+  paymentStatus?: string;
+  comprovanteUrl?: string;
+  comprovanteReembolsoUrl?: string;
+  motivoReembolso?: string;
+  dataReembolso?: string;
   fulfillments: Fulfillment[];
 };
 

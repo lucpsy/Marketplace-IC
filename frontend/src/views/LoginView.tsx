@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { MOCK_USERS } from "@/lib/data";
+import { API_URL, MOCK_USERS } from "@/lib/data";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -60,7 +60,7 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
     setFeedback(null);
 
     try {
-      const res = await fetch("http://localhost:3001/api/auth/register", {
+      const res = await fetch(`${API_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -476,24 +476,28 @@ export function LoginView() {
                 </tr>
               </thead>
               <tbody className="font-mono">
-                {MOCK_USERS.map((u) => (
-                  <tr
-                    key={u.id}
-                    className="cursor-pointer transition-colors hover:text-cyan"
-                    onClick={() => {
-                      setEmail(u.email);
-                      setPassword("123456");
-                      setFeedback(null);
-                    }}
-                    title="Clique para preencher"
-                  >
-                    <td className="py-0.5 pr-3 capitalize text-muted">
-                      {u.role}
-                    </td>
-                    <td className="py-0.5 pr-3 text-fg/80">{u.email}</td>
-                    <td className="py-0.5 text-muted/70">123456</td>
-                  </tr>
-                ))}
+                {MOCK_USERS.map((u) => {
+                  const testPassword =
+                    u.role === "admin" ? "admin123" : "aluno123";
+                  return (
+                    <tr
+                      key={u.id}
+                      className="cursor-pointer transition-colors hover:text-cyan"
+                      onClick={() => {
+                        setEmail(u.email);
+                        setPassword(testPassword);
+                        setFeedback(null);
+                      }}
+                      title="Clique para preencher"
+                    >
+                      <td className="py-0.5 pr-3 capitalize text-muted">
+                        {u.role}
+                      </td>
+                      <td className="py-0.5 pr-3 text-fg/80">{u.email}</td>
+                      <td className="py-0.5 text-muted/70">{testPassword}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

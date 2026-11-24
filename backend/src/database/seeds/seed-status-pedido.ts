@@ -6,8 +6,16 @@ import { TransicaoStatus } from '../../pedido/entities/transicao-status.entity';
 
 const STATUS_PADRAO = [
   {
+    nome: 'Aguardando confirmação',
+    descricao: 'Comprovante enviado, aguardando validação do administrador',
+    ordem: 0,
+    cor: '#f59e0b',
+    statusFinal: false,
+    ativo: true,
+  },
+  {
     nome: 'Confirmado',
-    descricao: 'Pedido recebido e confirmado',
+    descricao: 'Pagamento confirmado e pedido aprovado',
     ordem: 1,
     cor: '#3b82f6',
     statusFinal: false,
@@ -34,13 +42,29 @@ const STATUS_PADRAO = [
     descricao: 'Pedido retirado/entregue ao comprador',
     ordem: 4,
     cor: '#10b981',
+    statusFinal: false,
+    ativo: true,
+  },
+  {
+    nome: 'Solicitação de reembolso',
+    descricao: 'Cliente solicitou reembolso do pedido',
+    ordem: 5,
+    cor: '#fb923c',
+    statusFinal: false,
+    ativo: true,
+  },
+  {
+    nome: 'Reembolsado',
+    descricao: 'Reembolso efetivado com comprovante anexado pelo administrador',
+    ordem: 6,
+    cor: '#06b6d4',
     statusFinal: true,
     ativo: true,
   },
   {
     nome: 'Cancelado',
     descricao: 'Pedido cancelado',
-    ordem: 5,
+    ordem: 7,
     cor: '#ef4444',
     statusFinal: true,
     ativo: true,
@@ -48,12 +72,23 @@ const STATUS_PADRAO = [
 ];
 
 const TRANSICOES_PADRAO: Array<[string, string]> = [
+  ['Aguardando confirmação', 'Confirmado'],
+  ['Aguardando confirmação', 'Cancelado'],
   ['Confirmado', 'Em separação'],
+  ['Confirmado', 'Pronto para retirada'],
+  ['Confirmado', 'Entregue'],
+  ['Confirmado', 'Solicitação de reembolso'],
   ['Confirmado', 'Cancelado'],
   ['Em separação', 'Pronto para retirada'],
+  ['Em separação', 'Entregue'],
+  ['Em separação', 'Solicitação de reembolso'],
   ['Em separação', 'Cancelado'],
   ['Pronto para retirada', 'Entregue'],
+  ['Pronto para retirada', 'Solicitação de reembolso'],
   ['Pronto para retirada', 'Cancelado'],
+  ['Entregue', 'Solicitação de reembolso'],
+  ['Solicitação de reembolso', 'Reembolsado'],
+  ['Solicitação de reembolso', 'Confirmado'],
 ];
 
 /**
@@ -86,6 +121,9 @@ export async function seedStatusPedido(
       status = statusRepo.create(item);
       status = await statusRepo.save(status);
       criados++;
+    } else if (status.statusFinal !== item.statusFinal) {
+      status.statusFinal = item.statusFinal;
+      status = await statusRepo.save(status);
     }
     mapaStatus.set(item.nome, status);
   }

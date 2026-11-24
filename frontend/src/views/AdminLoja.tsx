@@ -4,7 +4,13 @@ import { useStore } from "@/lib/store";
 import { AdminProductCard, AddProductCard } from "@/components/ProductEditor";
 
 export function AdminLoja() {
-  const { products, addProduct, updateProduct, removeProduct } = useStore();
+  const {
+    products,
+    addProduct,
+    updateProduct,
+    removeProduct,
+    createCategory: createBackendCategory,
+  } = useStore();
 
   const categories = [
     "Tudo",
@@ -24,7 +30,7 @@ export function AdminLoja() {
   const [newCategory, setNewCategory] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
 
-  function createCategory() {
+  async function createCategory() {
     const category = newCategory.trim();
 
     if (!category) {
@@ -48,14 +54,16 @@ export function AdminLoja() {
       return;
     }
 
-    products
-      .filter((p) => selectedProducts.includes(p.id))
-      .forEach((product) => {
-        updateProduct({
-          ...product,
-          category: [...(product.category ?? []), category],
-        });
+    const created = await createBackendCategory(category);
+    if (!created) return;
+
+    const targets = products.filter((p) => selectedProducts.includes(p.id));
+    for (const product of targets) {
+      await updateProduct({
+        ...product,
+        category: [...(product.category ?? []), category],
       });
+    }
 
     setCat(category);
     setNewCategory("");

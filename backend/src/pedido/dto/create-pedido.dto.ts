@@ -32,4 +32,8 @@ export class CreatePedidoDto {
     message: 'metodoPagamento deve ser pix, cartao ou dinheiro',
   })
   metodoPagamento?: MetodoPagamento;
+
+  @IsOptional()
+  @IsString()
+  comprovanteUrl?: string;
 }
