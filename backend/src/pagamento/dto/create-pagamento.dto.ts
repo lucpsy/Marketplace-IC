@@ -94,4 +94,8 @@ export class CreatePagamentoDto {
   @IsString()
   @MaxLength(150)
   validadorCargo?: string;
+
+  @IsOptional()
+  @IsString()
+  comprovanteUrl?: string;
 }

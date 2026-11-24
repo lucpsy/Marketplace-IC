@@ -50,4 +50,8 @@ export class CreateRepasseDto {
     message: 'status do repasse deve ser concluido ou processando',
   })
   status?: StatusRepasse;
+
+  @IsString()
+  @IsNotEmpty({ message: 'É obrigatório anexar o comprovante do repasse' })
+  comprovanteUrl: string;
 }

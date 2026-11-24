@@ -1,7 +1,12 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { brl, type Order, type Fulfillment } from "@/lib/data";
+import {
+  brl,
+  fetchProtectedAssetBlobUrl,
+  type Order,
+  type Fulfillment,
+} from "@/lib/data";
 import { OrderStepper } from "@/components/OrderStepper";
 import { StatusPill, PinBadge } from "@/components/Shared";
 import { useRouter } from "next/navigation";
@@ -24,6 +29,15 @@ export function MeusPedidos() {
   const [motivo, setMotivo] = useState("");
   const [chavePix, setChavePix] = useState("");
   const [submittingRefund, setSubmittingRefund] = useState(false);
+
+  async function abrirComprovante(url: string) {
+    try {
+      const { blobUrl } = await fetchProtectedAssetBlobUrl(url);
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+    } catch (err: any) {
+      alert(err?.message || "Não foi possível abrir o comprovante.");
+    }
+  }
 
   // Para cliente, /api/pedido/meus já retorna apenas os pedidos do próprio usuário.
   // Para admin, /api/pedido retorna todos — filtramos pelos pedidos do próprio admin aqui.
@@ -123,9 +137,6 @@ export function MeusPedidos() {
         </div>
 
         <div className="mt-16 grid place-items-center gap-4 rounded-2xl border border-dashed border-line py-16 text-center">
-          <div className="grid size-12 place-items-center rounded-full bg-cyan/10 text-xl text-cyan">
-            🔒
-          </div>
           <div>
             <h3 className="font-display text-lg font-bold">
               Nenhuma conta conectada
@@ -205,7 +216,12 @@ export function MeusPedidos() {
               <div className="grid gap-4 lg:grid-cols-2">
                 {entries.map(({ order, fulfillment }) => {
                   const statusAtual = order.status || fulfillment.status;
-                  const canRequestRefund = REFUNDABLE_STATUSES.has(statusAtual);
+                  const canRequestRefund =
+                    statusAtual !== "Cancelado" &&
+                    statusAtual !== "Reembolsado" &&
+                    statusAtual !== "Aguardando confirmação" &&
+                    statusAtual !== "Solicitação de reembolso" &&
+                    order.paymentStatus === "concluido";
 
                   return (
                     <article
@@ -284,24 +300,24 @@ export function MeusPedidos() {
                       {/* Links de comprovantes e ação de reembolso */}
                       <div className="mt-4 flex flex-wrap items-center gap-2">
                         {order.comprovanteUrl && (
-                          <a
-                            href={order.comprovanteUrl}
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => abrirComprovante(order.comprovanteUrl!)}
                             className="rounded-lg border border-line px-3 py-1.5 text-xs text-fg transition-colors hover:border-cyan hover:text-cyan"
                           >
                             📎 Ver comprovante enviado
-                          </a>
+                          </button>
                         )}
                         {order.comprovanteReembolsoUrl && (
-                          <a
-                            href={order.comprovanteReembolsoUrl}
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            type="button"
+                            onClick={() =>
+                              abrirComprovante(order.comprovanteReembolsoUrl!)
+                            }
                             className="rounded-lg border border-cyan/40 bg-cyan/10 px-3 py-1.5 text-xs font-semibold text-cyan transition-colors hover:bg-cyan/20"
                           >
                             💸 Ver comprovante de reembolso
-                          </a>
+                          </button>
                         )}
                         {canRequestRefund && (
                           <button

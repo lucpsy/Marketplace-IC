@@ -8,13 +8,14 @@ import {
   Post,
   Query,
   Req,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { randomUUID } from 'crypto';
-import * as fs from 'fs/promises';
-import { extname, join } from 'path';
+import { Response } from 'express';
 import { PedidoService } from './pedido.service';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
 import { UpdateStatusPedidoDto } from './dto/update-status-pedido.dto';
@@ -23,13 +24,41 @@ import { EfetivarReembolsoDto } from './dto/efetivar-reembolso.dto';
 import { Admin } from '../auth/decorators/role.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 
-const ALLOWED_MIMES = new Set([
-  'image/png',
-  'image/jpeg',
-  'image/jpg',
-  'image/webp',
-  'application/pdf',
-]);
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
+
+const MIME_TO_EXT: Record<string, string> = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/webp': '.webp',
+  'application/pdf': '.pdf',
+};
+
+function validarAssinaturaArquivo(buffer: Buffer, ext: string): boolean {
+  if (!buffer || buffer.length < 4) return false;
+  if (ext === '.png') {
+    return (
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47
+    );
+  }
+  if (ext === '.jpg') {
+    return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  }
+  if (ext === '.webp') {
+    return (
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+    );
+  }
+  if (ext === '.pdf') {
+    return buffer.subarray(0, 4).toString('ascii') === '%PDF';
+  }
+  return false;
+}
 
 @Controller('pedido')
 export class PedidoController {
@@ -42,10 +71,11 @@ export class PedidoController {
   @Post('upload-comprovante')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 5 * 1024 * 1024 },
+      limits: { fileSize: MAX_UPLOAD_BYTES },
     }),
   )
   async uploadComprovante(
+    @Req() req: any,
     @UploadedFile()
     file?: {
       originalname: string;
@@ -58,26 +88,98 @@ export class PedidoController {
       throw new BadRequestException('Nenhum arquivo de comprovante enviado');
     }
 
-    if (!ALLOWED_MIMES.has(file.mimetype)) {
+    if (file.size > MAX_UPLOAD_BYTES || file.buffer.length > MAX_UPLOAD_BYTES) {
+      throw new BadRequestException(
+        'O arquivo excede o tamanho máximo permitido de 5 MB.',
+      );
+    }
+
+    const ext = MIME_TO_EXT[file.mimetype];
+    if (!ext) {
       throw new BadRequestException(
         'Formato inválido. Envie PNG, JPG, WEBP ou PDF.',
       );
     }
 
-    const ext =
-      extname(file.originalname || '').toLowerCase() ||
-      (file.mimetype === 'application/pdf' ? '.pdf' : '.png');
+    if (!validarAssinaturaArquivo(file.buffer, ext)) {
+      throw new BadRequestException(
+        'Conteúdo do arquivo não corresponde ao formato permitido (PNG, JPG, WEBP ou PDF).',
+      );
+    }
+
     const filename = `${Date.now()}-${randomUUID()}${ext}`;
-    const dir = join(process.cwd(), 'uploads', 'comprovantes');
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(join(dir, filename), file.buffer);
+    await this.pedidoService.salvarComprovante({
+      filename,
+      nomeOriginal: file.originalname || null,
+      mimetype: file.mimetype === 'image/jpg' ? 'image/jpeg' : file.mimetype,
+      tamanho: file.buffer.length,
+      dados: file.buffer,
+      usuarioId: this.getUserId(req),
+    });
 
     return {
-      url: `/api/uploads/comprovantes/${filename}`,
+      url: `/api/pedido/comprovantes/${filename}`,
       filename,
       mimetype: file.mimetype,
-      size: file.size,
+      size: file.buffer.length,
     };
+  }
+
+  @Public()
+  @Get('comprovantes/repasse/:filename')
+  async baixarComprovanteRepassePublico(
+    @Param('filename') filename: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { buffer, mimeType } =
+      await this.pedidoService.obterComprovanteRepassePublico(filename);
+
+    res.set({
+      'Content-Type': mimeType,
+      'Content-Length': String(buffer.length),
+      'Content-Disposition': 'inline',
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'public, max-age=300',
+    });
+
+    return new StreamableFile(buffer);
+  }
+
+  @Get('comprovantes/:filename')
+  async baixarComprovante(
+    @Req() req: any,
+    @Param('filename') filename: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const isAdmin = req.user?.role === 'admin';
+    const { buffer, mimeType } =
+      await this.pedidoService.obterComprovanteProtegido(
+        filename,
+        this.getUserId(req),
+        isAdmin,
+      );
+
+    res.set({
+      'Content-Type': mimeType,
+      'Content-Length': String(buffer.length),
+      'Content-Disposition': 'inline',
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, max-age=300',
+    });
+
+    return new StreamableFile(buffer);
+  }
+
+  @Public()
+  @Get('prazo-compras')
+  obterPrazoCompras() {
+    return this.pedidoService.obterPrazoCompras();
+  }
+
+  @Admin()
+  @Patch('prazo-compras')
+  atualizarPrazoCompras(@Body('offerDeadline') offerDeadline: string) {
+    return this.pedidoService.atualizarPrazoCompras(offerDeadline);
   }
 
   @Public()

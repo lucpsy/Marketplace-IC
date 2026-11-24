@@ -1,7 +1,13 @@
 "use client";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { brl, downloadCSV, supplierName, type Order } from "@/lib/data";
+import {
+  brl,
+  downloadCSV,
+  fetchProtectedAssetBlobUrl,
+  supplierName,
+  type Order,
+} from "@/lib/data";
 import { Stat, StatusPill } from "@/components/Shared";
 import { BarChart, RevenueChart, type BarDatum } from "@/components/charts";
 
@@ -54,7 +60,7 @@ export function AdminControle() {
   } = useStore();
 
   const [period, setPeriod] = useState<Period>("30d");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("aguardando");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -68,10 +74,53 @@ export function AdminControle() {
   const [deliveryCode, setDeliveryCode] = useState("");
   const [deliveryFeedback, setDeliveryFeedback] = useState<string | null>(null);
 
-  // Modal de visualização de comprovante
-  const [viewer, setViewer] = useState<{ title: string; url: string } | null>(
-    null,
-  );
+  // Modal de visualização de comprovante (autenticado via JWT + Blob URL)
+  const [viewer, setViewer] = useState<{
+    title: string;
+    url: string;
+    blobUrl?: string;
+    isPdf?: boolean;
+    loading?: boolean;
+    error?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!viewer || viewer.blobUrl || viewer.error) return;
+    let active = true;
+    setViewer((prev) => (prev ? { ...prev, loading: true } : prev));
+    fetchProtectedAssetBlobUrl(viewer.url)
+      .then(({ blobUrl, isPdf }) => {
+        if (!active) {
+          URL.revokeObjectURL(blobUrl);
+          return;
+        }
+        setViewer((prev) =>
+          prev ? { ...prev, blobUrl, isPdf, loading: false } : prev,
+        );
+      })
+      .catch((err: any) => {
+        if (!active) return;
+        setViewer((prev) =>
+          prev
+            ? {
+                ...prev,
+                loading: false,
+                error: err?.message || "Erro ao carregar comprovante.",
+              }
+            : prev,
+        );
+      });
+    return () => {
+      active = false;
+    };
+  }, [viewer?.url]);
+
+  function closeViewer() {
+    if (viewer?.blobUrl) {
+      URL.revokeObjectURL(viewer.blobUrl);
+    }
+    setViewer(null);
+  }
 
   // Modal de efetivação de reembolso (exige comprovante do admin)
   const [refundTarget, setRefundTarget] = useState<Order | null>(null);
@@ -271,11 +320,15 @@ export function AdminControle() {
     }
   }
 
-  async function handleChangeOrderStatus(order: Order, newStatus: string) {
+  async function handleChangeOrderStatus(
+    order: Order,
+    newStatus: string,
+    pinRetirada?: string,
+  ) {
     try {
       setBusyId(order.id);
       const supId = order.fulfillments[0]?.supplierId ?? "1";
-      await updateFulfillmentStatus(order.id, supId, newStatus);
+      await updateFulfillmentStatus(order.id, supId, newStatus, pinRetirada);
       if (newStatus === "Entregue") {
         setDeliveryFeedback(
           `Pedido ${order.id} marcado como Entregue com sucesso!`,
@@ -548,7 +601,11 @@ export function AdminControle() {
                     type="button"
                     disabled={busyId === matchedDeliveryOrder.id}
                     onClick={() =>
-                      handleChangeOrderStatus(matchedDeliveryOrder, "Entregue")
+                      handleChangeOrderStatus(
+                        matchedDeliveryOrder,
+                        "Entregue",
+                        deliveryCode.trim(),
+                      )
                     }
                     className="rounded-xl bg-emerald-400 px-4 py-2 text-xs font-bold text-ink transition-colors hover:bg-emerald-300 disabled:opacity-40"
                   >
@@ -982,7 +1039,7 @@ export function AdminControle() {
       {/* Modal: Visualizador de Comprovante */}
       {viewer && (
         <div
-          onClick={() => setViewer(null)}
+          onClick={closeViewer}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
         >
           <div
@@ -993,34 +1050,44 @@ export function AdminControle() {
               <h3 className="font-display text-lg font-bold">{viewer.title}</h3>
               <button
                 type="button"
-                onClick={() => setViewer(null)}
+                onClick={closeViewer}
                 className="text-muted hover:text-fg"
               >
                 ✕
               </button>
             </div>
             <div className="mt-4 flex flex-col items-center gap-4">
-              {isPdfUrl(viewer.url) ? (
-                <iframe
-                  src={viewer.url}
-                  title={viewer.title}
-                  className="h-[65vh] w-full rounded-xl border border-line bg-white"
-                />
-              ) : (
-                <img
-                  src={viewer.url}
-                  alt={viewer.title}
-                  className="max-h-[65vh] rounded-xl border border-line object-contain"
-                />
-              )}
-              <a
-                href={viewer.url}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-xl border border-cyan/40 bg-cyan/10 px-4 py-2 text-xs font-semibold text-cyan hover:bg-cyan/20"
-              >
-                Abrir em nova aba ↗
-              </a>
+              {viewer.loading ? (
+                <div className="py-12 text-xs text-muted">
+                  Carregando comprovante...
+                </div>
+              ) : viewer.error ? (
+                <div className="py-12 text-xs text-red-400">{viewer.error}</div>
+              ) : viewer.blobUrl ? (
+                <>
+                  {viewer.isPdf ? (
+                    <iframe
+                      src={viewer.blobUrl}
+                      title={viewer.title}
+                      className="h-[65vh] w-full rounded-xl border border-line bg-white"
+                    />
+                  ) : (
+                    <img
+                      src={viewer.blobUrl}
+                      alt={viewer.title}
+                      className="max-h-[65vh] rounded-xl border border-line object-contain"
+                    />
+                  )}
+                  <a
+                    href={viewer.blobUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl border border-cyan/40 bg-cyan/10 px-4 py-2 text-xs font-semibold text-cyan hover:bg-cyan/20"
+                  >
+                    Abrir em nova aba ↗
+                  </a>
+                </>
+              ) : null}
             </div>
           </div>
         </div>

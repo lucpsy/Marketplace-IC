@@ -16,48 +16,7 @@ export type Supplier = {
   currentStage?: string;
 };
 
-export const SUPPLIERS: Supplier[] = [
-  {
-    id: "confeccoes-ic",
-    name: "Confecções IC",
-    pickupLocation: "Sala do DIACOM — Bloco 4",
-    contact: "confeccoes@diacom.ic.ufal.br",
-    preparationFlow: [
-      "Confirmado",
-      "Corte & Estamparia",
-      "Em separação",
-      "Pronto para retirada",
-      "Entregue",
-    ],
-    currentStage: "Corte & Estamparia",
-  },
-  {
-    id: "grafica-campus",
-    name: "Gráfica Campus",
-    pickupLocation: "Gráfica Central — Bloco 1",
-    contact: "grafica@campus.ufal.br",
-    preparationFlow: [
-      "Confirmado",
-      "Impressão / Acabamento",
-      "Pronto para retirada",
-      "Entregue",
-    ],
-    currentStage: "Impressão / Acabamento",
-  },
-  {
-    id: "brindes-ufal",
-    name: "Brindes UFAL",
-    pickupLocation: "Centro de Convivência — Térreo",
-    contact: "brindes@ufal.br",
-    preparationFlow: [
-      "Confirmado",
-      "Em separação",
-      "Pronto para retirada",
-      "Entregue",
-    ],
-    currentStage: "Em separação",
-  },
-];
+export const SUPPLIERS: Supplier[] = [];
 
 export function supplierName(id: string, list?: Supplier[]) {
   const arr = list ?? SUPPLIERS;
@@ -93,116 +52,7 @@ export function productImages(p: Product): string[] {
   return unique.slice(0, MAX_PRODUCT_IMAGES);
 }
 
-// Product photography — apparel & merch, dark tonal.
-export const PRODUCTS: Product[] = [
-  {
-    id: "camisa-diacom",
-    name: "Camisa DIACOM 2026",
-    category: ["Vestuário"],
-    supplierId: "confeccoes-ic",
-    price: 55,
-    stock: 42,
-    badge: "Mais vendido",
-    image:
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop&auto=format",
-    images: [
-      "https://images.unsplash.com/photo-1503341504253-dff4815485f1?w=800&h=800&fit=crop&auto=format",
-      "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=800&h=800&fit=crop&auto=format",
-      "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=800&h=800&fit=crop&auto=format",
-    ],
-    blurb:
-      "Malha premium, estampa serigrafada com o brasão do Instituto de Computação.",
-  },
-  {
-    id: "moletom-ic",
-    name: "Moletom IC+ Canguru",
-    category: ["Vestuário"],
-    supplierId: "confeccoes-ic",
-    price: 129,
-    stock: 18,
-    badge: "Edição limitada",
-    image:
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&h=800&fit=crop&auto=format",
-    images: [
-      "https://images.unsplash.com/photo-1614495039153-2f8c68e57bab?w=800&h=800&fit=crop&auto=format",
-      "https://images.unsplash.com/photo-1578681994506-b8f463449011?w=800&h=800&fit=crop&auto=format",
-    ],
-    blurb:
-      "Flanelado interno, capuz forrado e bolso canguru. Aguenta o ar-condicionado do LabII.",
-  },
-  {
-    id: "caneca-compila",
-    name: 'Caneca "Compila na Primeira"',
-    category: ["Acessórios"],
-    supplierId: "brindes-ufal",
-    price: 39,
-    stock: 60,
-    image:
-      "https://i.pinimg.com/736x/f9/df/7a/f9df7a3eed23b730b2d63063b954eeca.jpg",
-    blurb:
-      "Porcelana 330ml. Para o café que sustenta as madrugadas de entrega.",
-  },
-  {
-    id: "ecobag-diacom",
-    name: "Ecobag DIACOM",
-    category: ["Acessórios"],
-    supplierId: "brindes-ufal",
-    price: 32,
-    stock: 55,
-    image:
-      "https://i.pinimg.com/736x/8c/08/e6/8c08e679951ebcd33028dc14e5726d33.jpg",
-    blurb:
-      "Algodão cru, alça reforçada. Leva livro, notebook e o lanche do bandejão.",
-  },
-  {
-    id: "adesivos-pack",
-    name: "Pack de Adesivos (12un)",
-    category: ["Papelaria"],
-    supplierId: "grafica-campus",
-    price: 18,
-    stock: 120,
-    badge: "Novo",
-    image:
-      "https://i.pinimg.com/736x/8b/da/c4/8bdac4563881279b6ab376ec821b7d68.jpg",
-    blurb:
-      "Vinil resistente à água. Bugs, linguagens e memes de CS para o notebook.",
-  },
-  {
-    id: "bone-icup",
-    name: "Boné ICup Champions",
-    category: ["Vestuário"],
-    supplierId: "confeccoes-ic",
-    price: 49,
-    stock: 27,
-    image:
-      "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=800&h=800&fit=crop&auto=format",
-    blurb: "Aba curva bordada. Comemore a taça do ICup com estilo.",
-  },
-  {
-    id: "caderno-dev",
-    name: "Caderno Dev Grid",
-    category: ["Papelaria"],
-    supplierId: "grafica-campus",
-    price: 27,
-    stock: 74,
-    image:
-      "https://images.unsplash.com/photo-1531346878377-a5be20888e57?w=800&h=800&fit=crop&auto=format",
-    blurb:
-      "Pautado em grid pontilhado, capa dura. Ideal para diagramas e pseudocódigo.",
-  },
-  {
-    id: "garrafa-termica",
-    name: "Garrafa Térmica IC 500ml",
-    category: ["Acessórios"],
-    supplierId: "brindes-ufal",
-    price: 68,
-    stock: 33,
-    image:
-      "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=800&h=800&fit=crop&auto=format",
-    blurb:
-      "Inox parede dupla, mantém gelado por 12h. Gravação a laser do logo.",
-  },
-];
+export const PRODUCTS: Product[] = [];
 
 /* --------------------------------------------------------------- Promotions */
 
@@ -217,19 +67,7 @@ export type Promotion = {
   endsAt?: string;
 };
 
-export const PROMOTIONS: Promotion[] = [
-  {
-    id: "promo-semana-comp",
-    title: "Semana da Computação",
-    description:
-      "Vista o IC com estilo: vestuário oficial com desconto especial.",
-    discountPct: 25,
-    productIds: ["camisa-diacom", "moletom-ic", "bone-icup"],
-    accent: "#22e0ee",
-    active: true,
-    endsAt: "2026-09-20T23:59:59",
-  },
-];
+export const PROMOTIONS: Promotion[] = [];
 
 export type EffectivePrice = {
   current: number;
@@ -256,8 +94,31 @@ export const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
 
 export function resolveAssetUrl(url?: string | null): string | undefined {
   if (!url) return undefined;
-  if (/^https?:\/\//i.test(url) || url.startsWith("data:")) return url;
-  return `${API_ORIGIN}${url.startsWith("/") ? "" : "/"}${url}`;
+  const normalized = url.replace(
+    /\/api\/uploads\/comprovantes\//i,
+    "/api/pedido/comprovantes/",
+  );
+  if (/^https?:\/\//i.test(normalized) || normalized.startsWith("data:")) {
+    return normalized;
+  }
+  return `${API_ORIGIN}${normalized.startsWith("/") ? "" : "/"}${normalized}`;
+}
+
+export async function fetchProtectedAssetBlobUrl(
+  url: string,
+): Promise<{ blobUrl: string; isPdf: boolean }> {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("diacom_token") : null;
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    throw new Error("Não foi possível carregar o comprovante.");
+  }
+  const blob = await res.blob();
+  const isPdf =
+    blob.type === "application/pdf" || /\.pdf(\?.*)?$/i.test(url);
+  return { blobUrl: URL.createObjectURL(blob), isPdf };
 }
 
 /* ------------------------------------------------------------------ Coupons */
@@ -344,8 +205,8 @@ export type Order = {
 
 export const INITIAL_ORDERS: Order[] = [];
 
-// Prazo da campanha de ofertas atual da loja (venda por encomenda).
-export const OFFER_DEADLINE = "2026-09-20T23:59:59";
+// Prazo da campanha inicia fechado até o administrador definir uma data no backend.
+export const OFFER_DEADLINE = "";
 
 // Taxa artificial cobrada pelo meio de pagamento.
 export const PAYMENT_FEE: Record<"Pix" | "Cartão", number> = {
@@ -392,19 +253,4 @@ export type MockUser = {
   courseOrDept?: string;
 };
 
-export const MOCK_USERS: MockUser[] = [
-  {
-    id: "u-cliente",
-    name: "Lucas Tenório",
-    email: "aluno@ic.ufal.br",
-    role: "cliente",
-    courseOrDept: "Ciência da Computação (2023.1)",
-  },
-  {
-    id: "u-admin",
-    name: "Coordenação DIACOM",
-    email: "admin@diacom.ic.ufal.br",
-    role: "admin",
-    courseOrDept: "Diretoria Executiva / DIACOM",
-  },
-];
+export const MOCK_USERS: MockUser[] = [];

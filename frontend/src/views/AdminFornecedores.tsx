@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useStore } from "@/lib/store"
 import { DEFAULT_PREPARATION_FLOW, type Supplier } from "@/lib/data"
 import { OrderStepper } from "@/components/OrderStepper"
+import { useCountdown } from "@/components/OfferDeadline"
 import { StatusPill } from "@/components/Shared"
 
 const FLOW_PRESETS: { name: string; stages: string[] }[] = [
@@ -73,12 +74,21 @@ export function AdminFornecedores() {
     removeSupplier,
     updateSupplierStage,
     updateFulfillmentStatus,
+    offerDeadline,
   } = useStore()
+  const { ended: offerEnded } = useCountdown(offerDeadline)
 
   const [draft, setDraft] = useState<Supplier | null>(null)
   const [expandedOrdersSupplierId, setExpandedOrdersSupplierId] = useState<string | null>(null)
 
   const isNew = draft !== null && !suppliers.some((s) => s.id === draft.id)
+  const originalSupplier = draft ? suppliers.find((s) => s.id === draft.id) : null
+  const flowLocked = Boolean(
+    originalSupplier &&
+      originalSupplier.preparationFlow.indexOf(
+        originalSupplier.currentStage ?? originalSupplier.preparationFlow[0] ?? "",
+      ) > 0,
+  )
 
   function startEdit(s: Supplier) {
     setDraft({ ...s, preparationFlow: [...s.preparationFlow] })
@@ -136,8 +146,14 @@ export function AdminFornecedores() {
         </div>
         {!draft && (
           <button
+            disabled={!offerEnded}
+            title={
+              !offerEnded
+                ? "Aguarde o encerramento do prazo de compras para cadastrar fornecedores"
+                : undefined
+            }
             onClick={() => setDraft(blankSupplier())}
-            className="rounded-xl bg-cyan px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5]"
+            className="rounded-xl bg-cyan px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5] disabled:cursor-not-allowed disabled:opacity-40"
           >
             + Novo Fornecedor
           </button>
@@ -246,8 +262,14 @@ export function AdminFornecedores() {
                         : `Pedidos Ativos (${supplierFulfillments.length})`}
                     </button>
                     <button
+                      disabled={!offerEnded}
+                      title={
+                        !offerEnded
+                          ? "Aguarde o encerramento do prazo de compras para editar fornecedores"
+                          : undefined
+                      }
                       onClick={() => (isEditingThisSupplier ? setDraft(null) : startEdit(supplier))}
-                      className={`rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                      className={`rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                         isEditingThisSupplier
                           ? "border-cyan bg-cyan text-ink"
                           : "border-line text-fg hover:border-cyan hover:text-cyan"
@@ -256,8 +278,14 @@ export function AdminFornecedores() {
                       {isEditingThisSupplier ? "Fechar Edição ▲" : "Editar Fornecedor & Fluxo ▼"}
                     </button>
                     <button
+                      disabled={!offerEnded}
+                      title={
+                        !offerEnded
+                          ? "Aguarde o encerramento do prazo de compras para remover fornecedores"
+                          : undefined
+                      }
                       onClick={() => handleDeleteSupplier(supplier.id, supplier.name)}
-                      className="rounded-xl border border-red-400/40 px-3.5 py-1.5 text-xs font-semibold text-red-300 transition-colors hover:bg-red-400/10"
+                      className="rounded-xl border border-red-400/40 px-3.5 py-1.5 text-xs font-semibold text-red-300 transition-colors hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Remover
                     </button>
@@ -302,7 +330,8 @@ export function AdminFornecedores() {
                           const cur = supplier.currentStage ?? supplier.preparationFlow[0] ?? ""
                           const curIdx = supplier.preparationFlow.indexOf(cur)
                           const confirmAndAdvance = (nextStage: string) => {
-                            if (nextStage === cur) return
+                            const offerOpen = !offerEnded
+                            if (offerOpen || nextStage === cur) return
                             const ok = window.confirm(
                               `Avançar "${supplier.name}" de "${cur}" para "${nextStage}"?\n\nEssa ação é irreversível e será aplicada a todos os pedidos ativos deste fornecedor. Confirme que todos os pedidos da etapa atual já foram processados.`,
                             )
@@ -310,12 +339,14 @@ export function AdminFornecedores() {
                               updateSupplierStage(supplier.id, nextStage, true)
                             }
                           }
+                          const offerOpen = !offerEnded
                           return (
                             <>
                               <select
                                 value={cur}
+                                disabled={offerOpen}
                                 onChange={(e) => confirmAndAdvance(e.target.value)}
-                                className="rounded-lg border border-cyan/40 bg-ink px-3 py-1.5 font-mono text-xs text-cyan outline-none focus:border-cyan"
+                                className="rounded-lg border border-cyan/40 bg-ink px-3 py-1.5 font-mono text-xs text-cyan outline-none focus:border-cyan disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 {supplier.preparationFlow.map((stage, idx) => (
                                   <option
@@ -330,14 +361,21 @@ export function AdminFornecedores() {
 
                               <button
                                 type="button"
-                                title="Avançar para a próxima etapa"
-                                disabled={curIdx >= supplier.preparationFlow.length - 1}
+                                title={
+                                  offerOpen
+                                    ? "Aguarde o encerramento do prazo de compras"
+                                    : "Avançar para a próxima etapa"
+                                }
+                                disabled={
+                                  offerOpen ||
+                                  curIdx >= supplier.preparationFlow.length - 1
+                                }
                                 onClick={() => {
                                   if (curIdx < supplier.preparationFlow.length - 1) {
                                     confirmAndAdvance(supplier.preparationFlow[curIdx + 1])
                                   }
                                 }}
-                                className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-cyan hover:text-cyan disabled:opacity-30"
+                                className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-cyan hover:text-cyan disabled:cursor-not-allowed disabled:opacity-30"
                               >
                                 Avançar →
                               </button>
@@ -347,9 +385,15 @@ export function AdminFornecedores() {
                       </div>
                     </div>
 
-                    <p className="mt-2.5 text-xs text-muted">
-                      O avanço de estágio é irreversível e sincroniza automaticamente todos os pedidos ativos deste fornecedor.
-                    </p>
+                    {!offerEnded ? (
+                      <p className="mt-2.5 text-xs text-amber-300">
+                        Prazo de compras ainda aberto — a alteração de estágio do fornecedor só é liberada após o encerramento do prazo.
+                      </p>
+                    ) : (
+                      <p className="mt-2.5 text-xs text-muted">
+                        O avanço de estágio é irreversível e sincroniza automaticamente todos os pedidos ativos deste fornecedor.
+                      </p>
+                    )}
                   </div>
 
                   {/* Stepper visual mostrando o estágio atual */}
@@ -434,6 +478,8 @@ export function AdminFornecedores() {
                     onSave={saveSupplier}
                     onCancel={() => setDraft(null)}
                     isNew={false}
+                    flowLocked={flowLocked}
+                    lockedStage={originalSupplier?.currentStage}
                   />
                 </div>
               )}
@@ -451,12 +497,16 @@ function SupplierEditorCard({
   onSave,
   onCancel,
   isNew,
+  flowLocked = false,
+  lockedStage,
 }: {
   draft: Supplier
   setDraft: (s: Supplier) => void
   onSave: () => void
   onCancel: () => void
   isNew?: boolean
+  flowLocked?: boolean
+  lockedStage?: string
 }) {
   const [newStageInput, setNewStageInput] = useState("")
 
@@ -558,21 +608,23 @@ function SupplierEditorCard({
           </div>
 
           {/* Presets */}
-          <div className="pt-2">
-            <span className="label text-muted">Modelos Prontos de Fluxo</span>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {FLOW_PRESETS.map((p) => (
-                <button
-                  key={p.name}
-                  type="button"
-                  onClick={() => applyPreset(p.stages)}
-                  className="rounded-lg border border-line bg-ink px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-cyan hover:text-cyan"
-                >
-                  {p.name} ({p.stages.length} etapas)
-                </button>
-              ))}
+          {!flowLocked && (
+            <div className="pt-2">
+              <span className="label text-muted">Modelos Prontos de Fluxo</span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {FLOW_PRESETS.map((p) => (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => applyPreset(p.stages)}
+                    className="rounded-lg border border-line bg-ink px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-cyan hover:text-cyan"
+                  >
+                    {p.name} ({p.stages.length} etapas)
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Right: Preparation Flow Builder */}
@@ -583,10 +635,22 @@ function SupplierEditorCard({
             </span>
             <span className="text-[11px] text-muted">Sequência do pedido</span>
           </div>
-          <p className="mt-1 text-xs text-muted">
-            Adicione, remova ou reordene as etapas que o cliente verá no acompanhamento de pedidos
-            deste fornecedor.
-          </p>
+          {flowLocked ? (
+            <div className="mt-3 space-y-3">
+              <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-3.5 py-2.5 text-xs text-amber-300">
+                Fluxo bloqueado para edição porque este fornecedor já avançou do primeiro estágio ({lockedStage ?? draft.currentStage}).
+              </div>
+              <OrderStepper
+                status={lockedStage ?? draft.currentStage ?? draft.preparationFlow[0] ?? "Confirmado"}
+                stages={draft.preparationFlow}
+              />
+            </div>
+          ) : (
+            <>
+              <p className="mt-1 text-xs text-muted">
+                Adicione, remova ou reordene as etapas que o cliente verá no acompanhamento de pedidos
+                deste fornecedor.
+              </p>
 
           {/* Add Stage Input */}
           <div className="mt-3 flex gap-2">
@@ -668,6 +732,8 @@ function SupplierEditorCard({
               />
             </div>
           </div>
+            </>
+          )}
         </div>
       </div>
 

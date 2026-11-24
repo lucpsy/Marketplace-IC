@@ -2,17 +2,10 @@ import "dotenv/config";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { NestExpressApplication } from "@nestjs/platform-express";
-import { join } from "path";
-import * as fs from "fs";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-
-  // Garante pasta de uploads e expõe estaticamente em /api/uploads
-  const uploadsDir = join(process.cwd(), "uploads");
-  fs.mkdirSync(join(uploadsDir, "comprovantes"), { recursive: true });
-  app.useStaticAssets(uploadsDir, { prefix: "/api/uploads/" });
 
   // Prefixo global das rotas
   app.setGlobalPrefix("api");

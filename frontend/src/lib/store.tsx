@@ -9,9 +9,6 @@ import {
 import {
   API_URL,
   resolveAssetUrl,
-  SUPPLIERS,
-  MOCK_USERS,
-  OFFER_DEADLINE,
   DEFAULT_PREPARATION_FLOW,
   type Product,
   type Promotion,
@@ -24,6 +21,15 @@ import {
   type Coupon,
   type MockUser,
 } from "./data";
+
+export type TransparenciaResumo = {
+  entradas: number;
+  entradasPendentes: number;
+  saidas: number;
+  saldo: number;
+  lucro: number;
+  totalPedidos: number;
+};
 
 export type Role = "cliente" | "admin";
 
@@ -45,6 +51,7 @@ export type RepassePayload = {
   validatorRole?: string;
   date?: string;
   status?: "Concluído" | "Processando";
+  comprovanteUrl: string;
 };
 
 export type ValidateCouponResult = {
@@ -86,6 +93,7 @@ type Store = {
     orderId: string,
     supplierId: string,
     status: string,
+    pinRetirada?: string,
   ) => Promise<void>;
 
   coupons: Coupon[];
@@ -103,6 +111,7 @@ type Store = {
 
   orders: Order[];
   txns: Txn[];
+  transparenciaResumo: TransparenciaResumo | null;
   addRepasse: (p: RepassePayload) => Promise<void>;
   removeTxn: (id: string) => Promise<void>;
   checkout: (p: CheckoutPayload) => Promise<{ id: string; pin: string }>;
@@ -319,11 +328,14 @@ function mapBackendTxn(raw: any): Txn {
     status,
     validator: raw.validadorNome || undefined,
     validatorRole: raw.validadorCargo || undefined,
-    comprovanteUrl: resolveAssetUrl(
-      rawCat === "estorno"
-        ? raw.comprovanteReembolsoUrl
-        : raw.comprovanteUrl,
-    ),
+    comprovanteUrl:
+      rawCat === "repasse" && raw.comprovanteUrl
+        ? `${API_URL}/pedido/comprovantes/repasse/${String(raw.comprovanteUrl).split("/").pop()}`
+        : resolveAssetUrl(
+            rawCat === "estorno"
+              ? raw.comprovanteReembolsoUrl
+              : raw.comprovanteUrl,
+          ),
   };
 }
 
@@ -340,7 +352,9 @@ function parseSupplierMeta(rawDadosPagamento: string | null | undefined): {
         pickupLocation:
           typeof parsed.pickupLocation === "string"
             ? parsed.pickupLocation
-            : undefined,
+            : typeof parsed.pontoRetirada === "string"
+              ? parsed.pontoRetirada
+              : undefined,
         preparationFlow: Array.isArray(parsed.preparationFlow)
           ? parsed.preparationFlow
           : undefined,
@@ -358,32 +372,26 @@ function parseSupplierMeta(rawDadosPagamento: string | null | undefined): {
 
 function mapBackendSupplier(f: any): Supplier {
   const nome = f.nomeFantasia || f.nomeRazaoSocial || "Fornecedor";
-  const mockMatch = SUPPLIERS.find(
-    (s) => s.name.toLowerCase() === nome.toLowerCase(),
-  );
   const meta = parseSupplierMeta(f.dadosPagamento);
   const flow =
     meta.preparationFlow && meta.preparationFlow.length > 0
       ? meta.preparationFlow
-      : mockMatch?.preparationFlow || [...DEFAULT_PREPARATION_FLOW];
+      : [...DEFAULT_PREPARATION_FLOW];
 
   return {
     id: String(f.idFornecedor),
     name: nome,
-    pickupLocation:
-      meta.pickupLocation ||
-      mockMatch?.pickupLocation ||
-      "Sala do DIACOM — Bloco 4",
-    contact: f.email || f.telefone || mockMatch?.contact,
+    pickupLocation: meta.pickupLocation || "Sala do DIACOM — Bloco 4",
+    contact: f.email || f.telefone || undefined,
     preparationFlow: flow,
-    currentStage: meta.currentStage || mockMatch?.currentStage || flow[0],
+    currentStage: meta.currentStage || flow[0],
   };
 }
 
 export function AppStore({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MockUser | null>(null);
   const [role, setRoleState] = useState<Role>("cliente");
-  const [offerDeadline, setOfferDeadlineState] = useState<string>(OFFER_DEADLINE);
+  const [offerDeadline, setOfferDeadlineState] = useState<string>("");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -392,6 +400,8 @@ export function AppStore({ children }: { children: ReactNode }) {
   >([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [txns, setTxns] = useState<Txn[]>([]);
+  const [transparenciaResumo, setTransparenciaResumo] =
+    useState<TransparenciaResumo | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [userCarts, setUserCarts] = useState<Record<string, CartLine[]>>({});
@@ -403,6 +413,19 @@ export function AppStore({ children }: { children: ReactNode }) {
     setOfferDeadlineState(deadline);
     if (typeof window !== "undefined") {
       localStorage.setItem("diacom_offer_deadline", deadline);
+    }
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("diacom_token")
+        : null;
+    if (token) {
+      fetch(`${API_URL}/pedido/prazo-compras`, {
+        method: "PATCH",
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({ offerDeadline: deadline }),
+      }).catch((err) =>
+        console.error("Erro ao salvar prazo de compras no servidor:", err),
+      );
     }
   }
 
@@ -440,17 +463,32 @@ export function AppStore({ children }: { children: ReactNode }) {
 
   async function refreshTransparencia() {
     try {
-      const res = await fetch(
-        `${API_URL}/pagamento/transparencia/lancamentos?limite=200`,
-      );
-      if (!res.ok) return;
-      const payload = await res.json();
-      const lista = Array.isArray(payload?.dados)
-        ? payload.dados
-        : Array.isArray(payload)
-          ? payload
-          : [];
-      setTxns(lista.map(mapBackendTxn));
+      const [resResumo, resLanc] = await Promise.all([
+        fetch(`${API_URL}/pagamento/transparencia/resumo`),
+        fetch(`${API_URL}/pagamento/transparencia/lancamentos?limite=200`),
+      ]);
+
+      if (resResumo.ok) {
+        const resumo = await resResumo.json();
+        setTransparenciaResumo({
+          entradas: Number(resumo?.entradas ?? 0),
+          entradasPendentes: Number(resumo?.entradasPendentes ?? 0),
+          saidas: Number(resumo?.saidas ?? 0),
+          saldo: Number(resumo?.saldo ?? 0),
+          lucro: Number(resumo?.lucro ?? 0),
+          totalPedidos: Number(resumo?.totalPedidos ?? 0),
+        });
+      }
+
+      if (resLanc.ok) {
+        const payload = await resLanc.json();
+        const lista = Array.isArray(payload?.dados)
+          ? payload.dados
+          : Array.isArray(payload)
+            ? payload
+            : [];
+        setTxns(lista.map(mapBackendTxn));
+      }
     } catch (err) {
       console.error("Erro ao carregar transparência financeira:", err);
     }
@@ -541,9 +579,6 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    const savedDeadline = localStorage.getItem("diacom_offer_deadline");
-    if (savedDeadline) setOfferDeadlineState(savedDeadline);
-
     async function restaurarSessao() {
       const savedToken = localStorage.getItem("diacom_token");
       const savedUserRaw = localStorage.getItem("diacom_user");
@@ -599,6 +634,18 @@ export function AppStore({ children }: { children: ReactNode }) {
     refreshCatalog();
     refreshPromotions();
     refreshTransparencia();
+    fetch(`${API_URL}/pedido/prazo-compras`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const deadline = data?.offerDeadline ?? "";
+        setOfferDeadlineState(deadline);
+        if (deadline) {
+          localStorage.setItem("diacom_offer_deadline", deadline);
+        } else {
+          localStorage.removeItem("diacom_offer_deadline");
+        }
+      })
+      .catch(() => null);
   }, []);
 
   /* --------------------------------------------------------------- Products */
@@ -750,12 +797,7 @@ export function AppStore({ children }: { children: ReactNode }) {
   function setRole(r: Role) {
     setRoleState(r);
     if (user) {
-      const matchingUser = MOCK_USERS.find((u) => u.role === r);
-      if (matchingUser) {
-        setUser(matchingUser);
-      } else {
-        setUser({ ...user, role: r });
-      }
+      setUser({ ...user, role: r });
     }
   }
 
@@ -902,6 +944,11 @@ export function AppStore({ children }: { children: ReactNode }) {
     newStage: string,
     syncOrders = true,
   ) {
+    const deadlineMs = new Date(offerDeadline).getTime();
+    if (!Number.isNaN(deadlineMs) && Date.now() < deadlineMs) {
+      return;
+    }
+
     const target = suppliers.find((s) => s.id === supplierId);
     if (target) {
       const currentStage = target.currentStage ?? target.preparationFlow[0];
@@ -963,6 +1010,7 @@ export function AppStore({ children }: { children: ReactNode }) {
     orderId: string,
     supplierId: string,
     status: string,
+    pinRetirada?: string,
   ) {
     const token = localStorage.getItem("diacom_token");
     const numericId = orderId.replace(/^#DC-/i, "");
@@ -987,7 +1035,10 @@ export function AppStore({ children }: { children: ReactNode }) {
       const res = await fetch(`${API_URL}/pedido/${numericId}/status`, {
         method: "PATCH",
         headers: getAuthHeaders(true),
-        body: JSON.stringify({ nomeStatus: status }),
+        body: JSON.stringify({
+          nomeStatus: status,
+          ...(pinRetirada ? { pinRetirada } : {}),
+        }),
       });
 
       if (!res.ok) {
@@ -1230,6 +1281,7 @@ export function AppStore({ children }: { children: ReactNode }) {
       validadorCargo:
         payload.validatorRole?.trim() || "Conselho Fiscal / DIACOM",
       status,
+      comprovanteUrl: payload.comprovanteUrl,
     };
 
     const res = await fetch(`${API_URL}/pagamento/repasses`, {
@@ -1303,8 +1355,8 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function checkout(p: CheckoutPayload) {
-    const deadlineMs = new Date(offerDeadline).getTime();
-    if (!Number.isNaN(deadlineMs) && Date.now() >= deadlineMs) {
+    const deadlineMs = offerDeadline ? new Date(offerDeadline).getTime() : NaN;
+    if (!offerDeadline || Number.isNaN(deadlineMs) || Date.now() >= deadlineMs) {
       throw new Error(
         "O prazo de compras está encerrado. Novos pedidos não podem ser realizados no momento.",
       );
@@ -1523,6 +1575,7 @@ export function AppStore({ children }: { children: ReactNode }) {
     removePromotion,
     orders,
     txns,
+    transparenciaResumo,
     addRepasse,
     removeTxn,
     checkout,

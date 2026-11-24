@@ -12,4 +12,8 @@ export class UpdateStatusPedidoDto {
   @IsOptional()
   @IsString()
   observacao?: string;
+
+  @IsOptional()
+  @IsString()
+  pinRetirada?: string;
 }

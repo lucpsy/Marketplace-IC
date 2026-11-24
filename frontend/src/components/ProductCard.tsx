@@ -9,6 +9,8 @@ import {
 } from "@/lib/data"
 import { PriceTag } from "./Shared"
 import { ProductGallery } from "./ProductGallery"
+import { useStore } from "@/lib/store"
+import { useCountdown } from "./OfferDeadline"
 
 export function ProductCard({
   product,
@@ -19,10 +21,13 @@ export function ProductCard({
   promotions: Promotion[]
   onAdd: (p: Product) => void
 }) {
+  const { offerDeadline, suppliers } = useStore()
+  const { ended: offerEnded } = useCountdown(offerDeadline)
   const price = effectivePrice(product, promotions)
   const photos = productImages(product)
   const [open, setOpen] = useState(false)
   const outOfStock = (product.stock ?? 0) <= 0
+  const unavailable = outOfStock || offerEnded
 
   return (
     <>
@@ -75,17 +80,17 @@ export function ProductCard({
           </div>
           <p className="mt-2 text-sm leading-relaxed text-muted">{product.blurb}</p>
           <div className="mt-4 flex items-center justify-between gap-2">
-            <span className="label text-muted">{supplierName(product.supplierId)}</span>
+            <span className="label text-muted">{supplierName(product.supplierId, suppliers)}</span>
             <button
-              onClick={() => !outOfStock && onAdd(product)}
-              disabled={outOfStock}
+              onClick={() => !unavailable && onAdd(product)}
+              disabled={unavailable}
               className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors ${
-                outOfStock
+                unavailable
                   ? "cursor-not-allowed border border-line bg-panel-2 text-muted"
                   : "bg-cyan text-ink hover:bg-[#5cebf5]"
               }`}
             >
-              {outOfStock ? "Esgotado" : "Adicionar"}
+              {outOfStock ? "Esgotado" : offerEnded ? "Prazo encerrado" : "Adicionar"}
             </button>
           </div>
         </div>

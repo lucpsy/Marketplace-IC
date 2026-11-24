@@ -1,6 +1,5 @@
 "use client"
 import { useEffect, useState } from "react"
-import { OFFER_DEADLINE } from "@/lib/data"
 import { useStore } from "@/lib/store"
 
 export function useCountdown(target: string) {
@@ -12,6 +11,9 @@ export function useCountdown(target: string) {
   }, [])
   if (now === null) {
     return { d: 0, h: 0, m: 0, s: 0, ended: false }
+  }
+  if (!target) {
+    return { d: 0, h: 0, m: 0, s: 0, ended: true }
   }
   const targetTime = new Date(target).getTime()
   const diff = Math.max(0, isNaN(targetTime) ? 0 : targetTime - now)
@@ -30,19 +32,20 @@ export function OfferDeadline({
   onEditDeadline?: () => void
 }) {
   const { offerDeadline, role } = useStore()
-  const target = offerDeadline || OFFER_DEADLINE
+  const target = offerDeadline || ""
   const { d, h, m, s, ended } = useCountdown(target)
 
-  const dateObj = new Date(target)
-  const formattedDate = isNaN(dateObj.getTime())
-    ? "Data inválida"
-    : dateObj.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "long",
-        year: dateObj.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+  const dateObj = target ? new Date(target) : null
+  const formattedDate =
+    !dateObj || isNaN(dateObj.getTime())
+      ? ""
+      : dateObj.toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "long",
+          year: dateObj.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+          hour: "2-digit",
+          minute: "2-digit",
+        })
 
   const parts: [string, number][] = [
     ["dias", d],
@@ -98,7 +101,6 @@ export function OfferDeadline({
               className="flex items-center gap-1.5 rounded-xl border border-cyan/50 bg-cyan/15 px-3.5 py-3 text-sm font-semibold text-cyan transition-colors hover:bg-cyan/25"
               title="Configurar prazo limite de compras e pedidos"
             >
-              <span>⏱️</span>
               <span>{ended ? "Reabrir Prazo" : "Alterar Prazo"}</span>
             </button>
           )}

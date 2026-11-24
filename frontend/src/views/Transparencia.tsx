@@ -2,22 +2,24 @@
 
 import { useState } from "react"
 import { useStore, type Role } from "@/lib/store"
-import { brl, type Txn } from "@/lib/data"
+import { brl, fetchProtectedAssetBlobUrl, type Txn } from "@/lib/data"
 import { Stat, StatusPill } from "@/components/Shared"
 import { OfferDeadline } from "@/components/OfferDeadline"
 import { useRouter } from "next/navigation"
 
-const VALIDATOR_PRESETS = [
-  { name: "Lucas Amorim", role: "Diretor Financeiro DIACOM" },
-  { name: "Prof. Dr. Willy Tiengo", role: "Coordenação de Computação" },
-  { name: "Conselho Fiscal DIACOM", role: "Auditoria Estudantil" },
-  { name: "Profa. Dra. Raquel Cabral", role: "Comitê de Ética e Transparência" },
-]
-
 export function Transparencia() {
   const router = useRouter()
   const onGoLoja = () => router.push("/")
-  const { txns, role, addRepasse, removeTxn, offerDeadline, setOfferDeadline } = useStore()
+  const {
+    txns,
+    transparenciaResumo,
+    role,
+    addRepasse,
+    uploadComprovante,
+    removeTxn,
+    offerDeadline,
+    setOfferDeadline,
+  } = useStore()
 
   const [filter, setFilter] = useState<
     "Todos" | "Vendas" | "Custo" | "Repasse" | "Taxa" | "Reembolso"
@@ -69,40 +71,74 @@ export function Transparencia() {
   const [validatorName, setValidatorName] = useState("")
   const [validatorRole, setValidatorRole] = useState("")
   const [status, setStatus] = useState<"Concluído" | "Processando">("Concluído")
+  const [repasseFile, setRepasseFile] = useState<File | null>(null)
+  const [submittingRepasse, setSubmittingRepasse] = useState(false)
 
-  const entradas = txns
-    .filter((t) => t.amount > 0 && t.status !== "Estornado")
-    .reduce((s, t) => s + t.amount, 0)
-  const saidas = txns.filter((t) => t.amount < 0).reduce((s, t) => s + t.amount, 0)
-  const saldo = entradas + saidas
-  const pedidos = new Set(txns.filter((t) => t.order !== "—").map((t) => t.order)).size
+  const entradas =
+    transparenciaResumo?.entradas ??
+    txns
+      .filter((t) => t.amount > 0 && t.status === "Concluído")
+      .reduce((s, t) => s + t.amount, 0)
+  const saidas =
+    transparenciaResumo !== null
+      ? -Math.abs(transparenciaResumo.saidas)
+      : txns
+          .filter((t) => t.amount < 0 && t.status === "Concluído")
+          .reduce((s, t) => s + t.amount, 0)
+  const saldo = transparenciaResumo?.saldo ?? entradas + saidas
+  const pedidos =
+    transparenciaResumo?.totalPedidos ??
+    new Set(txns.filter((t) => t.order !== "—").map((t) => t.order)).size
 
   const rows = filter === "Todos" ? txns : txns.filter((t) => t.category === filter)
 
-  function handleAddRepasse(e: React.FormEvent) {
+  async function handleAddRepasse(e: React.FormEvent) {
     e.preventDefault()
     if (!desc.trim() || !amount || +amount <= 0 || !validatorName.trim()) {
       alert("Por favor, preencha a descrição, valor e o validador do repasse.")
       return
     }
+    if (!repasseFile) {
+      alert("É obrigatório anexar o comprovante do repasse (PNG, JPG, WEBP ou PDF).")
+      return
+    }
 
-    addRepasse({
-      description: desc.trim(),
-      amount: +amount,
-      method,
-      date,
-      validator: validatorName.trim(),
-      validatorRole: validatorRole.trim() || "Conselho Fiscal / DIACOM",
-      status,
-    })
+    try {
+      setSubmittingRepasse(true)
+      const comprovanteUrl = await uploadComprovante(repasseFile)
+      await addRepasse({
+        description: desc.trim(),
+        amount: +amount,
+        method,
+        date,
+        validator: validatorName.trim(),
+        validatorRole: validatorRole.trim() || "Conselho Fiscal / DIACOM",
+        status,
+        comprovanteUrl,
+      })
 
-    // Reset
-    setDesc("")
-    setAmount("")
-    setValidatorName("")
-    setValidatorRole("")
-    setShowRepasseModal(false)
-    setFilter("Repasse")
+      // Reset
+      setDesc("")
+      setAmount("")
+      setValidatorName("")
+      setValidatorRole("")
+      setRepasseFile(null)
+      setShowRepasseModal(false)
+      setFilter("Repasse")
+    } catch (err: any) {
+      alert(err?.message || "Erro ao registrar repasse.")
+    } finally {
+      setSubmittingRepasse(false)
+    }
+  }
+
+  async function abrirComprovante(url: string) {
+    try {
+      const { blobUrl } = await fetchProtectedAssetBlobUrl(url)
+      window.open(blobUrl, "_blank", "noopener,noreferrer")
+    } catch (err: any) {
+      alert(err?.message || "Você não tem permissão para visualizar este comprovante.")
+    }
   }
 
   function handleRemove(t: Txn) {
@@ -134,14 +170,6 @@ export function Transparencia() {
 
         {role === "admin" && (
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={openDeadlineModal}
-              className="flex items-center gap-2 rounded-xl border border-cyan/40 bg-cyan/10 px-4 py-2.5 text-sm font-semibold text-cyan transition-colors hover:bg-cyan/20"
-              title="Configurar prazo limite de encomendas e compras"
-            >
-              <span>⏱️ Prazo de Compras</span>
-            </button>
-
             <button
               onClick={() => setShowRepasseModal(true)}
               className="flex items-center gap-2 rounded-xl bg-cyan px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5]"
@@ -225,7 +253,7 @@ export function Transparencia() {
                   type="text"
                   value={desc}
                   onChange={(e) => setDesc(e.target.value)}
-                  placeholder="Ex.: Repasse p/ evento Semana da Computação ou C.A."
+                  placeholder="Finalidade / descrição do repasse"
                   required
                   className="mt-1 w-full rounded-xl border border-line bg-ink px-3.5 py-2.5 text-sm text-fg outline-none focus:border-cyan"
                 />
@@ -240,7 +268,7 @@ export function Transparencia() {
                     min="0.01"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value ? +e.target.value : "")}
-                    placeholder="Ex.: 300.00"
+                    placeholder="0.00"
                     required
                     className="mt-1 w-full rounded-xl border border-line bg-ink px-3.5 py-2.5 font-mono text-sm text-fg outline-none focus:border-cyan"
                   />
@@ -305,7 +333,7 @@ export function Transparencia() {
                       type="text"
                       value={validatorName}
                       onChange={(e) => setValidatorName(e.target.value)}
-                      placeholder="Nome do validador (ex.: Prof. Dr. Willy Tiengo)"
+                      placeholder="Nome do validador"
                       required
                       className="w-full rounded-lg border border-line bg-panel px-3 py-2 text-xs text-fg outline-none focus:border-cyan"
                     />
@@ -315,31 +343,39 @@ export function Transparencia() {
                       type="text"
                       value={validatorRole}
                       onChange={(e) => setValidatorRole(e.target.value)}
-                      placeholder="Cargo / Órgão (ex.: Conselho Fiscal DIACOM)"
+                      placeholder="Cargo / Órgão"
                       className="w-full rounded-lg border border-line bg-panel px-3 py-2 text-xs text-fg outline-none focus:border-cyan"
                     />
                   </div>
-
-                  {/* Preset chips */}
-                  <div className="pt-1">
-                    <span className="text-[10px] text-muted">Sugestões de Validadores:</span>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      {VALIDATOR_PRESETS.map((p) => (
-                        <button
-                          key={p.name}
-                          type="button"
-                          onClick={() => {
-                            setValidatorName(p.name)
-                            setValidatorRole(p.role)
-                          }}
-                          className="rounded-md border border-line bg-panel px-2 py-0.5 text-[10px] text-muted hover:border-cyan hover:text-cyan"
-                        >
-                          {p.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
                 </div>
+              </div>
+
+              {/* Mandatory Receipt Attachment */}
+              <div>
+                <label className="block text-xs font-medium text-muted">
+                  Comprovante do Repasse (PNG, JPG, WEBP ou PDF — máx. 5 MB) *
+                </label>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,application/pdf"
+                  required
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null
+                    if (file && file.size > 5 * 1024 * 1024) {
+                      alert("O comprovante deve ter no máximo 5 MB.")
+                      e.target.value = ""
+                      setRepasseFile(null)
+                      return
+                    }
+                    setRepasseFile(file)
+                  }}
+                  className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-xs text-fg file:mr-3 file:rounded-lg file:border-0 file:bg-cyan/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-cyan hover:file:bg-cyan/25"
+                />
+                {repasseFile && (
+                  <p className="mt-1 font-mono text-[11px] text-cyan">
+                    📎 {repasseFile.name} ({(repasseFile.size / 1024).toFixed(0)} KB)
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 border-t border-line pt-3">
@@ -352,9 +388,10 @@ export function Transparencia() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-cyan px-5 py-2 text-sm font-bold text-ink transition-colors hover:bg-[#5cebf5]"
+                  disabled={submittingRepasse || !repasseFile}
+                  className="rounded-xl bg-cyan px-5 py-2 text-sm font-bold text-ink transition-colors hover:bg-[#5cebf5] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Registrar Repasse
+                  {submittingRepasse ? "Enviando..." : "Registrar Repasse"}
                 </button>
               </div>
             </form>
@@ -547,15 +584,24 @@ export function Transparencia() {
                             Reembolso
                           </span>
                         )}
-                        {t.category === "Reembolso" && t.comprovanteUrl && (
+                        {t.category === "Repasse" && t.comprovanteUrl && (
                           <a
                             href={t.comprovanteUrl}
                             target="_blank"
                             rel="noreferrer"
+                            className="rounded-md border border-purple-400/40 bg-purple-400/10 px-1.5 py-0.5 font-mono text-[10px] text-purple-300 hover:bg-purple-400/20"
+                          >
+                            Comprovante
+                          </a>
+                        )}
+                        {t.category === "Reembolso" && t.comprovanteUrl && (
+                          <button
+                            type="button"
+                            onClick={() => abrirComprovante(t.comprovanteUrl!)}
                             className="rounded-md border border-cyan/30 bg-cyan/10 px-1.5 py-0.5 font-mono text-[10px] text-cyan hover:bg-cyan/20"
                           >
-                            📎 Comprovante
-                          </a>
+                            Comprovante
+                          </button>
                         )}
                       </div>
                     </td>

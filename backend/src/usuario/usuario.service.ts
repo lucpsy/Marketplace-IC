@@ -48,7 +48,12 @@ export class UsuarioService implements OnModuleInit {
       }
       else throw new UnauthorizedException('Senha antiga incorreta');
     }
-    if (dados.email && await this.findOneByEmail(dados.email)) throw new ConflictException('Este Email já está cadastrado');
+    if (dados.email) {
+      const existente = await this.findOneByEmail(dados.email);
+      if (existente && existente.idUsuario !== id) {
+        throw new ConflictException('Este Email já está cadastrado');
+      }
+    }
     await this.repositorioUsuario.update(id, dados);
     return { message: 'Usuário atualizado com sucesso' };
   }
@@ -64,7 +69,12 @@ export class UsuarioService implements OnModuleInit {
       dados['senhaHash'] = await bcrypt.hash(dados.senha, 10);
       delete dados.senha;
     }
-    if (dados.email && await this.findOneByEmail(dados.email)) throw new ConflictException('Este Email já está cadastrado');
+    if (dados.email) {
+      const existente = await this.findOneByEmail(dados.email);
+      if (existente && existente.idUsuario !== id) {
+        throw new ConflictException('Este Email já está cadastrado');
+      }
+    }
     await this.repositorioUsuario.update(id, dados);
     return { message: 'Usuário atualizado com sucesso' };
   }

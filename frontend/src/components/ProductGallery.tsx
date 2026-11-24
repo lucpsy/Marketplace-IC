@@ -8,6 +8,8 @@ import {
   type Promotion,
 } from "@/lib/data"
 import { PriceTag } from "./Shared"
+import { useStore } from "@/lib/store"
+import { useCountdown } from "./OfferDeadline"
 
 export function ProductGallery({
   product,
@@ -20,10 +22,13 @@ export function ProductGallery({
   onClose: () => void
   onAdd?: (p: Product) => void
 }) {
+  const { offerDeadline, suppliers } = useStore()
+  const { ended: offerEnded } = useCountdown(offerDeadline)
   const images = productImages(product)
   const [idx, setIdx] = useState(0)
   const price = effectivePrice(product, promotions)
   const outOfStock = (product.stock ?? 0) <= 0
+  const unavailable = outOfStock || offerEnded
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -98,7 +103,7 @@ export function ProductGallery({
         {/* Detalhes */}
         <div className="flex w-full flex-col p-6 md:max-w-xs md:overflow-y-auto shrink-0">
           <div className="flex items-start justify-between gap-3">
-            <p className="label text-cyan">{supplierName(product.supplierId)}</p>
+            <p className="label text-cyan">{supplierName(product.supplierId, suppliers)}</p>
             <button
               onClick={onClose}
               className="grid size-8 place-items-center rounded-lg text-muted hover:text-fg"
@@ -123,19 +128,23 @@ export function ProductGallery({
           </p>
           {onAdd && (
             <button
-              disabled={outOfStock}
+              disabled={unavailable}
               onClick={() => {
-                if (outOfStock) return
+                if (unavailable) return
                 onAdd(product)
                 onClose()
               }}
               className={`mt-auto w-full rounded-xl py-3 text-sm font-semibold transition-colors ${
-                outOfStock
+                unavailable
                   ? "cursor-not-allowed border border-line bg-panel-2 text-muted"
                   : "bg-cyan text-ink hover:bg-[#5cebf5]"
               }`}
             >
-              {outOfStock ? "Produto esgotado" : "Adicionar ao carrinho"}
+              {outOfStock
+                ? "Produto esgotado"
+                : offerEnded
+                  ? "Prazo de compras encerrado"
+                  : "Adicionar ao carrinho"}
             </button>
           )}
         </div>

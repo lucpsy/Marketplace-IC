@@ -34,6 +34,14 @@ export async function seedFornecedores(repo?: Repository<Fornecedor>) {
         dadosPagamento: JSON.stringify({
           pontoRetirada: 'Sala do DIACOM — Bloco 4',
           chavePix: 'confeccoes@diacom.ic.ufal.br',
+          preparationFlow: [
+            'Confirmado',
+            'Corte & Estamparia',
+            'Em separação',
+            'Pronto para retirada',
+            'Entregue',
+          ],
+          currentStage: 'Confirmado',
         }),
       },
       {
@@ -45,6 +53,13 @@ export async function seedFornecedores(repo?: Repository<Fornecedor>) {
         dadosPagamento: JSON.stringify({
           pontoRetirada: 'Gráfica Central — Bloco 1',
           chavePix: 'grafica@campus.ufal.br',
+          preparationFlow: [
+            'Confirmado',
+            'Impressão / Acabamento',
+            'Pronto para retirada',
+            'Entregue',
+          ],
+          currentStage: 'Confirmado',
         }),
       },
       {
@@ -56,6 +71,13 @@ export async function seedFornecedores(repo?: Repository<Fornecedor>) {
         dadosPagamento: JSON.stringify({
           pontoRetirada: 'Coordenação de Extensão — Bloco 1',
           chavePix: 'contato@brindesalagoas.com.br',
+          preparationFlow: [
+            'Confirmado',
+            'Em separação',
+            'Pronto para retirada',
+            'Entregue',
+          ],
+          currentStage: 'Confirmado',
         }),
       },
     ]);

@@ -42,7 +42,7 @@ export function Loja() {
 
       {offerEnded && (
         <div className="mt-6 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
-          ⏱️ <strong>Prazo de compras encerrado.</strong> As encomendas desta
+          <strong>Prazo de compras encerrado.</strong> As encomendas desta
           leva foram fechadas — novos pedidos estão temporariamente bloqueados.
         </div>
       )}

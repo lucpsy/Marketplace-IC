@@ -1,4 +1,6 @@
 import { randomInt } from 'crypto';
+import * as fs from 'fs/promises';
+import { basename, extname, join } from 'path';
 import {
   BadRequestException,
   ForbiddenException,
@@ -18,6 +20,8 @@ import { CarrinhoItem } from '../carrinho/entities/carrinho-item.entity';
 import { Produto } from '../catalogo/entities/produto.entity';
 import { Usuario } from '../usuario/entities/usuario.entity';
 import { Pagamento } from '../pagamento/entities/pagamento.entity';
+import { ConfiguracaoLoja } from './entities/configuracao-loja.entity';
+import { ArquivoUpload } from './entities/arquivo-upload.entity';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
 import { UpdateStatusPedidoDto } from './dto/update-status-pedido.dto';
 import { SolicitarReembolsoDto } from './dto/solicitar-reembolso.dto';
@@ -45,11 +49,213 @@ export class PedidoService implements OnModuleInit {
     @InjectRepository(Usuario)
     private readonly usuarioRepo: Repository<Usuario>,
 
+    @InjectRepository(ConfiguracaoLoja)
+    private readonly configRepo: Repository<ConfiguracaoLoja>,
+
+    @InjectRepository(Pagamento)
+    private readonly pagamentoRepo: Repository<Pagamento>,
+
+    @InjectRepository(ArquivoUpload)
+    private readonly uploadRepo: Repository<ArquivoUpload>,
+
     private readonly promocaoService: PromocaoService,
   ) {}
 
   async onModuleInit() {
     await seedStatusPedido(this.statusRepo, this.transicaoRepo);
+    const cfg = await this.configRepo.findOneBy({ chave: 'offer_deadline' });
+    if (!cfg) {
+      await this.configRepo.save(
+        this.configRepo.create({ chave: 'offer_deadline', valor: null }),
+      );
+    }
+  }
+
+  /* -------------------------------------------------------- PRAZO DE COMPRAS */
+
+  async obterPrazoCompras() {
+    const cfg = await this.configRepo.findOneBy({ chave: 'offer_deadline' });
+    const valor = cfg?.valor ?? null;
+    if (!valor) {
+      return { offerDeadline: null, aberto: false };
+    }
+    const ms = new Date(valor).getTime();
+    const aberto = !Number.isNaN(ms) && Date.now() < ms;
+    return { offerDeadline: valor, aberto };
+  }
+
+  async salvarComprovante(params: {
+    filename: string;
+    nomeOriginal: string | null;
+    mimetype: string;
+    tamanho: number;
+    dados: Buffer;
+    usuarioId: string;
+  }): Promise<ArquivoUpload> {
+    const usuario = await this.usuarioRepo.findOneBy({
+      idUsuario: params.usuarioId,
+    });
+
+    const registro = this.uploadRepo.create({
+      filename: params.filename,
+      nomeOriginal: params.nomeOriginal?.slice(0, 255) ?? null,
+      mimetype: params.mimetype,
+      tamanho: params.tamanho,
+      dados: params.dados,
+      usuario: usuario ?? null,
+    });
+
+    return this.uploadRepo.save(registro);
+  }
+
+  async obterComprovanteRepassePublico(
+    filename: string,
+  ): Promise<{ buffer: Buffer; mimeType: string }> {
+    const safeName = basename(filename || '');
+    if (
+      safeName !== filename ||
+      !/^\d+-[0-9a-f-]+\.(png|jpg|jpeg|webp|pdf)$/i.test(safeName)
+    ) {
+      throw new BadRequestException('Nome de comprovante inválido');
+    }
+
+    const repasse = await this.pagamentoRepo
+      .createQueryBuilder('pag')
+      .where('pag.ativo = true')
+      .andWhere("pag.categoria = 'repasse'")
+      .andWhere('pag.comprovanteUrl LIKE :suffix', { suffix: `%/${safeName}` })
+      .getOne();
+
+    if (!repasse) {
+      throw new NotFoundException('Comprovante de repasse não encontrado');
+    }
+
+    const upload = await this.uploadRepo
+      .createQueryBuilder('upload')
+      .addSelect('upload.dados')
+      .where('upload.filename = :filename', { filename: safeName })
+      .getOne();
+
+    if (upload) {
+      return {
+        buffer: upload.dados,
+        mimeType: upload.mimetype,
+      };
+    }
+
+    const filePath = join(process.cwd(), 'uploads', 'comprovantes', safeName);
+    let buffer: Buffer;
+    try {
+      buffer = await fs.readFile(filePath);
+    } catch {
+      throw new NotFoundException('Comprovante de repasse não encontrado');
+    }
+
+    const ext = extname(safeName).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.webp': 'image/webp',
+      '.pdf': 'application/pdf',
+    };
+
+    return {
+      buffer,
+      mimeType: mimeMap[ext] ?? 'application/octet-stream',
+    };
+  }
+
+  async obterComprovanteProtegido(
+    filename: string,
+    usuarioId: string,
+    isAdmin: boolean,
+  ): Promise<{ buffer: Buffer; mimeType: string }> {
+    const safeName = basename(filename || '');
+    if (
+      safeName !== filename ||
+      !/^\d+-[0-9a-f-]+\.(png|jpg|jpeg|webp|pdf)$/i.test(safeName)
+    ) {
+      throw new BadRequestException('Nome de comprovante inválido');
+    }
+
+    const upload = await this.uploadRepo
+      .createQueryBuilder('upload')
+      .leftJoinAndSelect('upload.usuario', 'usuario')
+      .addSelect('upload.dados')
+      .where('upload.filename = :filename', { filename: safeName })
+      .getOne();
+
+    const possuiVinculoNoPedido = async (): Promise<boolean> => {
+      const pagamento = await this.pagamentoRepo
+        .createQueryBuilder('pag')
+        .innerJoin('pag.pedido', 'ped')
+        .innerJoin('ped.usuario', 'usr')
+        .where('usr.idUsuario = :usuarioId', { usuarioId })
+        .andWhere(
+          '(pag.comprovanteUrl LIKE :suffix OR pag.comprovanteReembolsoUrl LIKE :suffix)',
+          { suffix: `%/${safeName}` },
+        )
+        .getOne();
+      return Boolean(pagamento);
+    };
+
+    if (upload) {
+      const ehDonoDoUpload = upload.usuario?.idUsuario === usuarioId;
+      if (!isAdmin && !ehDonoDoUpload && !(await possuiVinculoNoPedido())) {
+        throw new ForbiddenException(
+          'Você não tem permissão para acessar este comprovante',
+        );
+      }
+
+      return {
+        buffer: upload.dados,
+        mimeType: upload.mimetype,
+      };
+    }
+
+    // Fallback legado para comprovantes salvos em disco antes da migration ArquivoUpload
+    if (!isAdmin && !(await possuiVinculoNoPedido())) {
+      throw new ForbiddenException(
+        'Você não tem permissão para acessar este comprovante',
+      );
+    }
+
+    const filePath = join(process.cwd(), 'uploads', 'comprovantes', safeName);
+    let buffer: Buffer;
+    try {
+      buffer = await fs.readFile(filePath);
+    } catch {
+      throw new NotFoundException('Comprovante não encontrado');
+    }
+
+    const ext = extname(safeName).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.webp': 'image/webp',
+      '.pdf': 'application/pdf',
+    };
+
+    return {
+      buffer,
+      mimeType: mimeMap[ext] ?? 'application/octet-stream',
+    };
+  }
+
+  async atualizarPrazoCompras(offerDeadline: string) {
+    const parsed = new Date(offerDeadline);
+    if (!offerDeadline || Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException('Data de prazo de compras inválida');
+    }
+
+    const registro = this.configRepo.create({
+      chave: 'offer_deadline',
+      valor: offerDeadline,
+    });
+    await this.configRepo.save(registro);
+    return this.obterPrazoCompras();
   }
 
   /* -------------------------------------------------------- STATUS */
@@ -79,6 +285,13 @@ export class PedidoService implements OnModuleInit {
   /* -------------------------------------------------------- FECHAMENTO */
 
   async criarDoCarrinho(usuarioId: string, dto: CreatePedidoDto) {
+    const { aberto } = await this.obterPrazoCompras();
+    if (!aberto) {
+      throw new BadRequestException(
+        'O prazo de compras está encerrado. Novos pedidos não podem ser realizados no momento.',
+      );
+    }
+
     const carrinho = await this.carrinhoRepo.findOne({
       where: { usuario: { idUsuario: usuarioId } },
       relations: ["usuario", "itens", "itens.produto"],
@@ -178,14 +391,25 @@ export class PedidoService implements OnModuleInit {
 
         await manager.save(ItemPedido, itensPedido);
 
-        // Baixa de estoque dos produtos comprados
+        // Baixa atômica de estoque (proteção contra concorrência / estoque negativo)
         for (const item of carrinho.itens) {
-          await manager.decrement(
-            Produto,
-            { idProduto: item.produto.idProduto },
-            "estoque",
-            item.quantidade,
-          );
+          const qtd = Number(item.quantidade);
+          const updateResult = await manager
+            .createQueryBuilder()
+            .update(Produto)
+            .set({ estoque: () => `estoque - ${qtd}` })
+            .where('id_produto = :idProduto', {
+              idProduto: item.produto.idProduto,
+            })
+            .andWhere("status = 'ativo'")
+            .andWhere('estoque >= :qtd', { qtd })
+            .execute();
+
+          if (!updateResult.affected) {
+            throw new BadRequestException(
+              `Estoque insuficiente para "${item.produto.nome}".`,
+            );
+          }
         }
 
         // Histórico inicial
@@ -379,6 +603,15 @@ export class PedidoService implements OnModuleInit {
       }
     }
 
+    if (statusDestino.nome === 'Entregue' && pedido.pinRetirada) {
+      const pinInformado = dto.pinRetirada?.trim();
+      if (!pinInformado || pinInformado !== pedido.pinRetirada) {
+        throw new BadRequestException(
+          'Informe o PIN de retirada válido para marcar o pedido como Entregue.',
+        );
+      }
+    }
+
     const responsavel = await this.usuarioRepo.findOneBy({
       idUsuario: responsavelId,
     });
@@ -498,15 +731,24 @@ export class PedidoService implements OnModuleInit {
       );
     }
 
-    const statusPermitidos = [
-      'Confirmado',
-      'Em separação',
-      'Pronto para retirada',
-      'Entregue',
-    ];
-    if (!pedido.status || !statusPermitidos.includes(pedido.status.nome)) {
+    const statusBloqueados = new Set([
+      'Aguardando confirmação',
+      'Solicitação de reembolso',
+      'Reembolsado',
+      'Cancelado',
+    ]);
+    if (!pedido.status || statusBloqueados.has(pedido.status.nome)) {
       throw new BadRequestException(
         `Não é possível solicitar reembolso para pedido no status "${pedido.status?.nome ?? 'desconhecido'}"`,
+      );
+    }
+
+    const temPagamentoConfirmado = (pedido.pagamentos ?? []).some(
+      (p) => p.ativo && p.tipo === 'entrada' && p.status === 'concluido',
+    );
+    if (!temPagamentoConfirmado) {
+      throw new BadRequestException(
+        'Não é possível solicitar reembolso: este pedido não possui pagamento confirmado.',
       );
     }
 

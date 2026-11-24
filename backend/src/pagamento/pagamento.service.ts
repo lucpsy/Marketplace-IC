@@ -566,6 +566,12 @@ export class PagamentoService {
       );
     }
 
+    if (categoria === 'repasse' && !dto.comprovanteUrl?.trim()) {
+      throw new BadRequestException(
+        'Lançamentos de repasse exigem o anexo do comprovante (comprovanteUrl)',
+      );
+    }
+
     const referencia = dto.referenciaGateway?.trim() || null;
     if (referencia) {
       await this.validarReferenciaUnica(referencia);
@@ -590,6 +596,7 @@ export class PagamentoService {
       descricao: dto.descricao?.trim() || null,
       validadorNome: dto.validadorNome?.trim() || null,
       validadorCargo: dto.validadorCargo?.trim() || null,
+      comprovanteUrl: dto.comprovanteUrl?.trim() || null,
       ativo: true,
     });
 
@@ -608,6 +615,7 @@ export class PagamentoService {
       descricao: dto.descricao,
       validadorNome: dto.validadorNome,
       validadorCargo: dto.validadorCargo ?? 'Conselho Fiscal / DIACOM',
+      comprovanteUrl: dto.comprovanteUrl,
     });
   }
 

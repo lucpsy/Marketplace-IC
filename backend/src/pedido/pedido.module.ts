@@ -12,6 +12,8 @@ import { CarrinhoItem } from '../carrinho/entities/carrinho-item.entity';
 import { Produto } from '../catalogo/entities/produto.entity';
 import { Usuario } from '../usuario/entities/usuario.entity';
 import { Pagamento } from '../pagamento/entities/pagamento.entity';
+import { ConfiguracaoLoja } from './entities/configuracao-loja.entity';
+import { ArquivoUpload } from './entities/arquivo-upload.entity';
 import { PromocaoModule } from '../promo/promo.module';
 
 @Module({
@@ -27,6 +29,8 @@ import { PromocaoModule } from '../promo/promo.module';
       Produto,
       Usuario,
       Pagamento,
+      ConfiguracaoLoja,
+      ArquivoUpload,
     ]),
     PromocaoModule,
   ],
