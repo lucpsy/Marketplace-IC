@@ -49,6 +49,9 @@ export class Pedido {
   @Column({type: 'text',nullable: true,})
   observacao: string | null;
 
+  @Column({name: 'pin_retirada', type: 'varchar', length: 10, nullable: true})
+  pinRetirada: string | null;
+
   @UpdateDateColumn({name: 'data_atualizacao',type: 'timestamp',nullable: true,})
   dataAtualizacao: Date | null;
 

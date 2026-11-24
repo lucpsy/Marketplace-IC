@@ -22,6 +22,7 @@ export function ProductCard({
   const price = effectivePrice(product, promotions)
   const photos = productImages(product)
   const [open, setOpen] = useState(false)
+  const outOfStock = (product.stock ?? 0) <= 0
 
   return (
     <>
@@ -34,7 +35,9 @@ export function ProductCard({
           <img
             src={product.image}
             alt={product.name}
-            className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className={`size-full object-cover transition-transform duration-500 group-hover:scale-105 ${
+              outOfStock ? "opacity-55 grayscale-[35%]" : ""
+            }`}
           />
           {photos.length > 1 && (
             <span className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-ink/80 px-2 py-1 font-mono text-[10px] text-fg backdrop-blur">
@@ -42,7 +45,11 @@ export function ProductCard({
               {photos.length}
             </span>
           )}
-          {price.promo ? (
+          {outOfStock ? (
+            <span className="absolute left-3 top-3 rounded-full border border-red-400/50 bg-ink/85 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-red-400 backdrop-blur">
+              Esgotado
+            </span>
+          ) : price.promo ? (
             <span className="absolute left-3 top-3 rounded-full bg-cyan px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-ink">
               −{price.promo.discountPct}% · {price.promo.title}
             </span>
@@ -70,10 +77,15 @@ export function ProductCard({
           <div className="mt-4 flex items-center justify-between gap-2">
             <span className="label text-muted">{supplierName(product.supplierId)}</span>
             <button
-              onClick={() => onAdd(product)}
-              className="rounded-lg bg-cyan px-3.5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5]"
+              onClick={() => !outOfStock && onAdd(product)}
+              disabled={outOfStock}
+              className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors ${
+                outOfStock
+                  ? "cursor-not-allowed border border-line bg-panel-2 text-muted"
+                  : "bg-cyan text-ink hover:bg-[#5cebf5]"
+              }`}
             >
-              Adicionar
+              {outOfStock ? "Esgotado" : "Adicionar"}
             </button>
           </div>
         </div>

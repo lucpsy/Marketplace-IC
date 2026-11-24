@@ -77,7 +77,6 @@ export function AdminFornecedores() {
 
   const [draft, setDraft] = useState<Supplier | null>(null)
   const [expandedOrdersSupplierId, setExpandedOrdersSupplierId] = useState<string | null>(null)
-  const [syncOnStageChange, setSyncOnStageChange] = useState<Record<string, boolean>>({})
 
   const isNew = draft !== null && !suppliers.some((s) => s.id === draft.id)
 
@@ -299,89 +298,58 @@ export function AdminFornecedores() {
                         <span className="label text-cyan text-[11px]">Estágio Global do Fornecedor</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <select
-                          value={supplier.currentStage ?? supplier.preparationFlow[0] ?? ""}
-                          onChange={(e) =>
-                            updateSupplierStage(
-                              supplier.id,
-                              e.target.value,
-                              syncOnStageChange[supplier.id] ?? false,
+                        {(() => {
+                          const cur = supplier.currentStage ?? supplier.preparationFlow[0] ?? ""
+                          const curIdx = supplier.preparationFlow.indexOf(cur)
+                          const confirmAndAdvance = (nextStage: string) => {
+                            if (nextStage === cur) return
+                            const ok = window.confirm(
+                              `Avançar "${supplier.name}" de "${cur}" para "${nextStage}"?\n\nEssa ação é irreversível e será aplicada a todos os pedidos ativos deste fornecedor. Confirme que todos os pedidos da etapa atual já foram processados.`,
                             )
+                            if (ok) {
+                              updateSupplierStage(supplier.id, nextStage, true)
+                            }
                           }
-                          className="rounded-lg border border-cyan/40 bg-ink px-3 py-1.5 font-mono text-xs text-cyan outline-none focus:border-cyan"
-                        >
-                          {supplier.preparationFlow.map((stage) => (
-                            <option key={stage} value={stage}>
-                              {stage}
-                            </option>
-                          ))}
-                        </select>
+                          return (
+                            <>
+                              <select
+                                value={cur}
+                                onChange={(e) => confirmAndAdvance(e.target.value)}
+                                className="rounded-lg border border-cyan/40 bg-ink px-3 py-1.5 font-mono text-xs text-cyan outline-none focus:border-cyan"
+                              >
+                                {supplier.preparationFlow.map((stage, idx) => (
+                                  <option
+                                    key={stage}
+                                    value={stage}
+                                    disabled={curIdx >= 0 && idx < curIdx}
+                                  >
+                                    {stage}
+                                  </option>
+                                ))}
+                              </select>
 
-                        {/* Botões de atalho: Anterior / Próximo */}
-                        <button
-                          type="button"
-                          title="Etapa anterior"
-                          disabled={
-                            supplier.preparationFlow.indexOf(
-                              supplier.currentStage ?? supplier.preparationFlow[0],
-                            ) <= 0
-                          }
-                          onClick={() => {
-                            const cur = supplier.currentStage ?? supplier.preparationFlow[0]
-                            const idx = supplier.preparationFlow.indexOf(cur)
-                            if (idx > 0)
-                              updateSupplierStage(
-                                supplier.id,
-                                supplier.preparationFlow[idx - 1],
-                                syncOnStageChange[supplier.id] ?? false,
-                              )
-                          }}
-                          className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-cyan hover:text-cyan disabled:opacity-30"
-                        >
-                          ← Anterior
-                        </button>
-                        <button
-                          type="button"
-                          title="Próxima etapa"
-                          disabled={
-                            supplier.preparationFlow.indexOf(
-                              supplier.currentStage ?? supplier.preparationFlow[0],
-                            ) >= supplier.preparationFlow.length - 1
-                          }
-                          onClick={() => {
-                            const cur = supplier.currentStage ?? supplier.preparationFlow[0]
-                            const idx = supplier.preparationFlow.indexOf(cur)
-                            if (idx < supplier.preparationFlow.length - 1)
-                              updateSupplierStage(
-                                supplier.id,
-                                supplier.preparationFlow[idx + 1],
-                                syncOnStageChange[supplier.id] ?? false,
-                              )
-                          }}
-                          className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-cyan hover:text-cyan disabled:opacity-30"
-                        >
-                          Próximo →
-                        </button>
+                              <button
+                                type="button"
+                                title="Avançar para a próxima etapa"
+                                disabled={curIdx >= supplier.preparationFlow.length - 1}
+                                onClick={() => {
+                                  if (curIdx < supplier.preparationFlow.length - 1) {
+                                    confirmAndAdvance(supplier.preparationFlow[curIdx + 1])
+                                  }
+                                }}
+                                className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-cyan hover:text-cyan disabled:opacity-30"
+                              >
+                                Avançar →
+                              </button>
+                            </>
+                          )
+                        })()}
                       </div>
                     </div>
 
-                    {/* Opção de sincronização com pedidos */}
-                    <label className="mt-2.5 flex cursor-pointer items-center gap-2 text-xs text-muted">
-                      <input
-                        type="checkbox"
-                        checked={syncOnStageChange[supplier.id] ?? false}
-                        onChange={(e) =>
-                          setSyncOnStageChange((prev) => ({
-                            ...prev,
-                            [supplier.id]: e.target.checked,
-                          }))
-                        }
-                        className="size-3.5 accent-cyan"
-                      />
-                      <span>
-                        Sincronizar automaticamente todos os pedidos ativos deste fornecedor ao mudar o estágio
-                      </span>
-                    </label>
+                    <p className="mt-2.5 text-xs text-muted">
+                      O avanço de estágio é irreversível e sincroniza automaticamente todos os pedidos ativos deste fornecedor.
+                    </p>
                   </div>
 
                   {/* Stepper visual mostrando o estágio atual */}

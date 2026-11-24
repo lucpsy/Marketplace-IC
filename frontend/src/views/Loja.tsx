@@ -1,11 +1,14 @@
 "use client";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
+import { OFFER_DEADLINE } from "@/lib/data";
 import { ProductCard } from "@/components/ProductCard";
 import { PromoBanner } from "@/components/PromoBanner";
+import { useCountdown } from "@/components/OfferDeadline";
 
 export function Loja() {
-  const { products, promotions, addToCart } = useStore();
+  const { products, promotions, addToCart, offerDeadline } = useStore();
+  const { ended: offerEnded } = useCountdown(offerDeadline || OFFER_DEADLINE);
 
   const categories = [
     "Tudo",
@@ -36,6 +39,13 @@ export function Loja() {
           Renda revertida para eventos e projetos do IC.
         </p>
       </div>
+
+      {offerEnded && (
+        <div className="mt-6 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+          ⏱️ <strong>Prazo de compras encerrado.</strong> As encomendas desta
+          leva foram fechadas — novos pedidos estão temporariamente bloqueados.
+        </div>
+      )}
 
       {activePromos.length > 0 && (
         <div className="mt-8 space-y-3">

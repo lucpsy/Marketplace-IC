@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { CartIcon } from "./Shared";
 import { CartDrawer } from "@/components/CartDrawer";
@@ -26,7 +26,18 @@ const ADMIN_NAV: NavItem[] = [
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const { user } = useStore();
+  const pathname = usePathname();
+  const router = useRouter();
   const nav = user?.role === "admin" ? ADMIN_NAV : CLIENT_NAV;
+
+  useEffect(() => {
+    if (user?.role === "admin" && pathname === "/") {
+      const id = window.setTimeout(() => {
+        router.replace("/admin/loja");
+      }, 0);
+      return () => window.clearTimeout(id);
+    }
+  }, [user?.role, pathname, router]);
 
   return (
     <div className="min-h-screen bg-ink text-fg font-sans">
@@ -54,7 +65,11 @@ function Header({ nav }: { nav: NavItem[] }) {
   return (
     <header className="sticky top-0 z-40 px-4 pt-4 print:hidden">
       <div className="mx-auto flex max-w-6xl items-center gap-3 rounded-2xl border border-line bg-panel/85 px-4 py-2.5 backdrop-blur-md">
-        <Link href="/" className="flex items-center gap-2" aria-label="Início">
+        <Link
+          href={user?.role === "admin" ? "/admin/loja" : "/"}
+          className="flex items-center gap-2"
+          aria-label="Início"
+        >
           <span className="grid size-9 place-items-center rounded-lg bg-cyan font-display text-base font-black tracking-tight text-ink shadow-[0_0_12px_rgba(34,224,238,0.2)]">
             DC
           </span>

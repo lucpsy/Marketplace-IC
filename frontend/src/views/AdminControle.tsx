@@ -124,20 +124,9 @@ export function AdminControle() {
   }
 
   const matchedDeliveryOrder = useMemo(() => {
-    const q = normalizeCode(deliveryCode);
+    const q = deliveryCode.trim();
     if (!q) return null;
-    const onlyDigits = q.replace(/\D/g, "");
-    return (
-      orders.find((o) => {
-        const normId = normalizeCode(o.id);
-        const idDigits = normId.replace(/\D/g, "");
-        return (
-          normId === q ||
-          (onlyDigits.length > 0 && idDigits === onlyDigits) ||
-          o.pin === q
-        );
-      }) ?? null
-    );
+    return orders.find((o) => o.pin === q) ?? null;
   }, [orders, deliveryCode]);
 
   const refDate = useMemo(() => {
@@ -448,20 +437,21 @@ export function AdminControle() {
           <div>
             <p className="label text-cyan">Confirmar saída / entrega</p>
             <p className="mt-0.5 text-xs text-muted">
-              Digite o código do pedido (#DC-12 ou 12) ou o PIN informado pelo
-              comprador na retirada para conferir os dados e marcar como
-              entregue.
+              Digite o PIN de retirada (4 dígitos) informado pelo comprador para
+              conferir os dados e marcar como entregue.
             </p>
           </div>
           <div className="flex w-full max-w-sm items-center gap-2">
             <input
               type="text"
+              inputMode="numeric"
+              maxLength={4}
               value={deliveryCode}
               onChange={(e) => {
-                setDeliveryCode(e.target.value);
+                setDeliveryCode(e.target.value.replace(/\D/g, ""));
                 setDeliveryFeedback(null);
               }}
-              placeholder="Código do pedido ou PIN dito pelo cliente..."
+              placeholder="PIN de retirada informado pelo cliente..."
               className="w-full rounded-xl border border-line bg-ink px-3.5 py-2 font-mono text-sm uppercase text-cyan outline-none placeholder:normal-case placeholder:text-muted/60 focus:border-cyan"
             />
             {deliveryCode && (
@@ -895,21 +885,10 @@ export function AdminControle() {
                                           <span className="text-xs font-semibold text-cyan">
                                             📦 Empacotado e pronto para retirada
                                           </span>
-                                          <button
-                                            type="button"
-                                            disabled={busyId === o.id}
-                                            onClick={() =>
-                                              handleChangeOrderStatus(
-                                                o,
-                                                "Entregue",
-                                              )
-                                            }
-                                            className="rounded-lg bg-emerald-400 px-3.5 py-1.5 text-xs font-bold text-ink hover:bg-emerald-300 disabled:opacity-40"
-                                          >
-                                            {busyId === o.id
-                                              ? "Salvando..."
-                                              : "✓ Marcar como Entregue"}
-                                          </button>
+                                          <span className="text-[11px] text-muted">
+                                            Valide pelo código/PIN acima para
+                                            confirmar a entrega
+                                          </span>
                                         </>
                                       ) : (
                                         <>

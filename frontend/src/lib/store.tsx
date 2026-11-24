@@ -148,6 +148,13 @@ function getAuthHeaders(withJson = false): Record<string, string> {
   return headers;
 }
 
+function resolveOrderPin(raw: any): string {
+  if (raw?.pinRetirada) return String(raw.pinRetirada);
+  const num = Number(raw?.idPedido) || 1;
+  const mixed = ((num * 2654435761) >>> 0) % 9000 + 1000;
+  return String(mixed);
+}
+
 function mapBackendOrder(raw: any): Order {
   const statusNome = (raw.status?.nome || "Confirmado") as any;
   const firstPay = Array.isArray(raw.pagamentos) ? raw.pagamentos[0] : null;
@@ -192,7 +199,7 @@ function mapBackendOrder(raw: any): Order {
     buyerId: raw.usuario?.idUsuario ? String(raw.usuario.idUsuario) : undefined,
     total: Number(raw.valorTotal ?? 0),
     method,
-    pin: String(raw.idPedido).padStart(4, "0").slice(-4),
+    pin: resolveOrderPin(raw),
     status: statusNome as OrderStatus,
     paymentStatus: firstPay?.status || undefined,
     comprovanteUrl: resolveAssetUrl(firstPay?.comprovanteUrl),
@@ -537,20 +544,57 @@ export function AppStore({ children }: { children: ReactNode }) {
     const savedDeadline = localStorage.getItem("diacom_offer_deadline");
     if (savedDeadline) setOfferDeadlineState(savedDeadline);
 
-    try {
+    async function restaurarSessao() {
       const savedToken = localStorage.getItem("diacom_token");
       const savedUserRaw = localStorage.getItem("diacom_user");
-      if (savedToken && savedUserRaw) {
-        const parsed: MockUser = JSON.parse(savedUserRaw);
-        const restoredRole: Role = parsed.role === "admin" ? "admin" : "cliente";
-        setUser(parsed);
-        setRoleState(restoredRole);
-        refreshOrders(restoredRole);
+      if (!savedToken) return;
+
+      if (savedUserRaw) {
+        try {
+          const parsed: MockUser = JSON.parse(savedUserRaw);
+          const restoredRole: Role =
+            parsed.role === "admin" ? "admin" : "cliente";
+          setUser(parsed);
+          setRoleState(restoredRole);
+        } catch {
+          localStorage.removeItem("diacom_user");
+        }
       }
-    } catch {
-      localStorage.removeItem("diacom_token");
-      localStorage.removeItem("diacom_user");
+
+      try {
+        const res = await fetch(`${API_URL}/usuario/profile`, {
+          headers: { Authorization: `Bearer ${savedToken}` },
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          logout();
+          return;
+        }
+
+        if (res.ok) {
+          const profile = await res.json();
+          const freshRole: Role = String(profile.cargo ?? "")
+            .toLowerCase()
+            .includes("admin")
+            ? "admin"
+            : "cliente";
+          const freshUser: MockUser = {
+            id: String(profile.idUsuario ?? profile.id ?? ""),
+            name: profile.nome ?? profile.name ?? "",
+            email: profile.email ?? "",
+            role: freshRole,
+          };
+          setUser(freshUser);
+          setRoleState(freshRole);
+          localStorage.setItem("diacom_user", JSON.stringify(freshUser));
+          refreshOrders(freshRole);
+        }
+      } catch (err) {
+        console.error("Erro ao validar sessão com o servidor:", err);
+      }
     }
+
+    restaurarSessao();
 
     refreshCatalog();
     refreshPromotions();
@@ -856,10 +900,17 @@ export function AppStore({ children }: { children: ReactNode }) {
   async function updateSupplierStage(
     supplierId: string,
     newStage: string,
-    syncOrders = false,
+    syncOrders = true,
   ) {
     const target = suppliers.find((s) => s.id === supplierId);
     if (target) {
+      const currentStage = target.currentStage ?? target.preparationFlow[0];
+      const currentIdx = target.preparationFlow.indexOf(currentStage);
+      const nextIdx = target.preparationFlow.indexOf(newStage);
+      if (currentIdx >= 0 && nextIdx >= 0 && nextIdx <= currentIdx) {
+        return;
+      }
+
       const updated = { ...target, currentStage: newStage };
       setSuppliers((prev) =>
         prev.map((s) => (s.id === supplierId ? updated : s)),
@@ -867,13 +918,44 @@ export function AppStore({ children }: { children: ReactNode }) {
       await updateSupplier(updated);
     }
 
-    if (syncOrders) {
-      const affectedOrders = orders.filter((order) =>
-        order.fulfillments.some((f) => f.supplierId === supplierId),
-      );
+    if (syncOrders && newStage !== "Entregue") {
+      const token = localStorage.getItem("diacom_token");
+      if (!token) return;
+
+      const blockedStatuses = new Set([
+        "Entregue",
+        "Cancelado",
+        "Reembolsado",
+        "Reembolso solicitado",
+      ]);
+
+      const affectedOrders = orders.filter((order) => {
+        const currentStatus =
+          order.status || order.fulfillments[0]?.status || "";
+        if (blockedStatuses.has(currentStatus) || currentStatus === newStage) {
+          return false;
+        }
+        return order.fulfillments.some((f) => f.supplierId === supplierId);
+      });
+
       for (const order of affectedOrders) {
-        await updateFulfillmentStatus(order.id, supplierId, newStage);
+        const numericId = order.id.replace(/^#DC-/i, "");
+        if (!/^\d+$/.test(numericId)) continue;
+        try {
+          await fetch(`${API_URL}/pedido/${numericId}/status`, {
+            method: "PATCH",
+            headers: getAuthHeaders(true),
+            body: JSON.stringify({ nomeStatus: newStage }),
+          });
+        } catch (err) {
+          console.error(
+            `Erro ao sincronizar status do pedido ${order.id}:`,
+            err,
+          );
+        }
       }
+
+      await Promise.all([refreshOrders(role), refreshTransparencia()]);
     }
   }
 
@@ -1221,6 +1303,13 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function checkout(p: CheckoutPayload) {
+    const deadlineMs = new Date(offerDeadline).getTime();
+    if (!Number.isNaN(deadlineMs) && Date.now() >= deadlineMs) {
+      throw new Error(
+        "O prazo de compras está encerrado. Novos pedidos não podem ser realizados no momento.",
+      );
+    }
+
     const token = localStorage.getItem("diacom_token");
     if (!token) {
       throw new Error("Você precisa estar logado para finalizar o pedido.");
@@ -1275,7 +1364,7 @@ export function AppStore({ children }: { children: ReactNode }) {
 
     const pedidoCriado = await resPedido.json();
     const id = `#DC-${pedidoCriado.idPedido}`;
-    const pin = String(pedidoCriado.idPedido).padStart(4, "0").slice(-4);
+    const pin = resolveOrderPin(pedidoCriado);
 
     // 4. Atualiza pedidos, catálogo e transparência direto do banco
     await Promise.all([

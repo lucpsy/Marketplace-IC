@@ -44,10 +44,10 @@ export function RevenueChart({ data }: { data: BarDatum[] }) {
     return <p className="text-sm text-muted">Sem arrecadação no período.</p>
   return (
     <div>
-      <div className="flex h-44 items-end gap-1.5">
+      <div className="flex h-44 items-end gap-3">
         {data.map((d) => (
-          <div key={d.label} className="group flex flex-1 flex-col items-center gap-1">
-            <div className="relative flex w-full flex-1 items-end">
+          <div key={d.label} className="group flex h-full max-w-14 flex-1 flex-col items-center gap-1">
+            <div className="relative flex h-full w-full flex-1 items-end">
               <div
                 className="w-full rounded-t bg-cyan/70 transition-colors group-hover:bg-cyan"
                 style={{ height: `${Math.max(2, (d.value / max) * 100)}%` }}

@@ -23,6 +23,7 @@ export function ProductGallery({
   const images = productImages(product)
   const [idx, setIdx] = useState(0)
   const price = effectivePrice(product, promotions)
+  const outOfStock = (product.stock ?? 0) <= 0
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -113,16 +114,28 @@ export function ProductGallery({
             <PriceTag price={price} />
           </div>
           <p className="mt-4 text-sm leading-relaxed text-muted">{product.blurb}</p>
-          <p className="mt-3 label text-muted">{product.stock} em estoque</p>
+          <p
+            className={`mt-3 label ${
+              outOfStock ? "text-red-400 font-semibold" : "text-muted"
+            }`}
+          >
+            {outOfStock ? "Esgotado" : `${product.stock} em estoque`}
+          </p>
           {onAdd && (
             <button
+              disabled={outOfStock}
               onClick={() => {
+                if (outOfStock) return
                 onAdd(product)
                 onClose()
               }}
-              className="mt-auto w-full rounded-xl bg-cyan py-3 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5]"
+              className={`mt-auto w-full rounded-xl py-3 text-sm font-semibold transition-colors ${
+                outOfStock
+                  ? "cursor-not-allowed border border-line bg-panel-2 text-muted"
+                  : "bg-cyan text-ink hover:bg-[#5cebf5]"
+              }`}
             >
-              Adicionar ao carrinho
+              {outOfStock ? "Produto esgotado" : "Adicionar ao carrinho"}
             </button>
           )}
         </div>

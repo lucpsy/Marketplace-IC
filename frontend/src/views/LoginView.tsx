@@ -4,19 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { API_URL, MOCK_USERS } from "@/lib/data";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Detecta o role pelo e-mail, usando os mocks como lookup (provisório). */
-function resolveRole(email: string) {
-  const found = MOCK_USERS.find(
-    (u) => u.email.toLowerCase() === email.trim().toLowerCase(),
-  );
-  return found?.role ?? "cliente";
-}
+import { API_URL } from "@/lib/data";
 
 // ---------------------------------------------------------------------------
 // Sub-component: Register Form
@@ -459,48 +447,6 @@ export function LoginView() {
               </button>
             </div>
           </form>
-
-          {/* ----------------------------------------------------------------
-              Credenciais de Teste — REMOVER ANTES DO DEPLOY
-          ---------------------------------------------------------------- */}
-          <div className="mt-6 rounded-xl border border-dashed border-line/60 bg-ink/40 p-3.5">
-            <p className="label text-[10px] text-muted/60">
-              🔧 Credenciais de teste — remover antes do deploy
-            </p>
-            <table className="mt-2 w-full text-[11px]">
-              <thead>
-                <tr className="text-left text-muted/50">
-                  <th className="pb-1 pr-3 font-medium">Perfil</th>
-                  <th className="pb-1 pr-3 font-medium">E-mail</th>
-                  <th className="pb-1 font-medium">Senha</th>
-                </tr>
-              </thead>
-              <tbody className="font-mono">
-                {MOCK_USERS.map((u) => {
-                  const testPassword =
-                    u.role === "admin" ? "admin123" : "aluno123";
-                  return (
-                    <tr
-                      key={u.id}
-                      className="cursor-pointer transition-colors hover:text-cyan"
-                      onClick={() => {
-                        setEmail(u.email);
-                        setPassword(testPassword);
-                        setFeedback(null);
-                      }}
-                      title="Clique para preencher"
-                    >
-                      <td className="py-0.5 pr-3 capitalize text-muted">
-                        {u.role}
-                      </td>
-                      <td className="py-0.5 pr-3 text-fg/80">{u.email}</td>
-                      <td className="py-0.5 text-muted/70">{testPassword}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
         </div>
 
         {/* Back Link */}

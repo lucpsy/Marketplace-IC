@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import {
   BadRequestException,
   ForbiddenException,
@@ -149,6 +150,7 @@ export class PedidoService implements OnModuleInit {
           frete: frete.toFixed(2),
           valorTotal: valorTotal.toFixed(2),
           observacao: dto.observacao ?? null,
+          pinRetirada: String(randomInt(1000, 10000)),
         });
 
         const pedidoSalvo = await manager.save(Pedido, pedido);

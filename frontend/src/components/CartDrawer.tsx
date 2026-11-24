@@ -1,8 +1,9 @@
 "use client";
 import { useMemo, useState } from "react";
-import { brl, effectivePrice, type Coupon } from "@/lib/data";
+import { brl, effectivePrice, OFFER_DEADLINE, type Coupon } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { QtyBtn, Row, CartIcon, PinBadge } from "./Shared";
+import { useCountdown } from "./OfferDeadline";
 import { useRouter } from "next/navigation";
 
 export function CartDrawer() {
@@ -18,7 +19,9 @@ export function CartDrawer() {
     validateCoupon,
     cartOpen,
     setCartOpen,
+    offerDeadline,
   } = useStore();
+  const { ended: offerEnded } = useCountdown(offerDeadline || OFFER_DEADLINE);
   const onClose = () => setCartOpen(false);
 
   const [code, setCode] = useState("");
@@ -295,11 +298,24 @@ export function CartDrawer() {
                   {brl(total)}
                 </span>
               </div>
+              {offerEnded && (
+                <div className="mt-3 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">
+                  Prazo de compras encerrado. Novos pedidos estão fechados no
+                  momento.
+                </div>
+              )}
               <button
-                onClick={() => setStep("pay")}
-                className="mt-4 w-full rounded-xl bg-cyan py-3 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5]"
+                onClick={() => !offerEnded && setStep("pay")}
+                disabled={offerEnded}
+                className={`mt-4 w-full rounded-xl py-3 text-sm font-semibold transition-colors ${
+                  offerEnded
+                    ? "cursor-not-allowed border border-line bg-panel-2 text-muted"
+                    : "bg-cyan text-ink hover:bg-[#5cebf5]"
+                }`}
               >
-                Ir para pagamento · {brl(total)}
+                {offerEnded
+                  ? "Prazo de compras encerrado"
+                  : `Ir para pagamento · ${brl(total)}`}
               </button>
               <p className="mt-2 text-center text-[11px] text-muted">
                 Pagamento simulado via Pix ou cartão.

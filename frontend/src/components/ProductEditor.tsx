@@ -174,7 +174,7 @@ function ProductForm({
 }) {
   const { suppliers } = useStore();
   const set = (patch: Partial<Product>) => onChange({ ...value, ...patch });
-  const valid = value.name.trim() && value.price > 0;
+  const valid = value.name.trim() && value.price > 0 && value.stock >= 0;
   return (
     <div className="space-y-2.5">
       <p className="label text-cyan">
@@ -190,13 +190,13 @@ function ProductForm({
           label="Preço (R$)"
           type="number"
           value={value.price}
-          onChange={(v) => set({ price: +v || 0 })}
+          onChange={(v) => set({ price: Math.max(0, +v || 0) })}
         />
         <Field
           label="Estoque"
           type="number"
           value={value.stock}
-          onChange={(v) => set({ stock: +v || 0 })}
+          onChange={(v) => set({ stock: Math.max(0, Math.floor(+v || 0)) })}
         />
       </div>
       <div className="grid grid-cols-2 gap-2.5">
