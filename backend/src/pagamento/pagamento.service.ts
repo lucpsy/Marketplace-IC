@@ -136,6 +136,8 @@ export class PagamentoService {
       descricao: p.descricao,
       validadorNome: p.validadorNome,
       validadorCargo: p.validadorCargo,
+      comprovanteUrl: p.comprovanteUrl ?? null,
+      comprovanteReembolsoUrl: p.comprovanteReembolsoUrl ?? null,
     };
   }
 

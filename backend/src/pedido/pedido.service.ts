@@ -19,6 +19,8 @@ import { Usuario } from '../usuario/entities/usuario.entity';
 import { Pagamento } from '../pagamento/entities/pagamento.entity';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
 import { UpdateStatusPedidoDto } from './dto/update-status-pedido.dto';
+import { SolicitarReembolsoDto } from './dto/solicitar-reembolso.dto';
+import { EfetivarReembolsoDto } from './dto/efetivar-reembolso.dto';
 import { seedStatusPedido } from '../database/seeds/seed-status-pedido';
 import { PromocaoService } from '../promo/promo.service';
 
@@ -100,13 +102,19 @@ export class PedidoService implements OnModuleInit {
       }
     }
 
-    const statusInicial = await this.statusRepo.findOneBy({
-      nome: "Confirmado",
-    });
+    if (!dto.comprovanteUrl || !dto.comprovanteUrl.trim()) {
+      throw new BadRequestException(
+        "É obrigatório anexar o comprovante de pagamento para finalizar o pedido",
+      );
+    }
+
+    const statusInicial =
+      (await this.statusRepo.findOneBy({ nome: "Aguardando confirmação" })) ??
+      (await this.statusRepo.findOneBy({ nome: "Confirmado" }));
 
     if (!statusInicial) {
       throw new NotFoundException(
-        'Status inicial "Confirmado" não configurado',
+        'Status inicial "Aguardando confirmação" não configurado',
       );
     }
 
@@ -183,7 +191,7 @@ export class PedidoService implements OnModuleInit {
           pedido: pedidoSalvo,
           status: statusInicial,
           usuarioResponsavel: carrinho.usuario,
-          observacao: `Pedido confirmado a partir do carrinho${resumoPromos}`,
+          observacao: `Comprovante enviado — aguardando confirmação do administrador${resumoPromos}`,
         });
         await manager.save(HistoricoStatus, historicoInicial);
 
@@ -196,6 +204,7 @@ export class PedidoService implements OnModuleInit {
         metodo: dto.metodoPagamento ?? 'pix',
         status: 'pendente',
         descricao: `Venda — Pedido #${pedidoSalvo.idPedido}`,
+        comprovanteUrl: dto.comprovanteUrl.trim(),
         ativo: true,
       });
       await manager.save(Pagamento, pagamentoInicial);
@@ -218,11 +227,13 @@ export class PedidoService implements OnModuleInit {
     return this.pedidoRepo.find({
       where: { usuario: { idUsuario: usuarioId } },
       relations: [
+        "usuario",
         "status",
         "itens",
         "itens.produto",
         "itens.produto.imagens",
         "itens.produto.fornecedor",
+        "pagamentos",
         "historicoStatus",
         "historicoStatus.status",
       ],
@@ -406,5 +417,236 @@ export class PedidoService implements OnModuleInit {
     });
 
     return this.findOne(idPedido, responsavelId, true);
+  }
+
+  /* ------------------------------------------------ CONFIRMAÇÃO & REEMBOLSO */
+
+  async confirmarPagamento(idPedido: string, adminId: string): Promise<Pedido> {
+    const pedido = await this.pedidoRepo.findOne({
+      where: { idPedido },
+      relations: ['status', 'pagamentos'],
+    });
+
+    if (!pedido) {
+      throw new NotFoundException(`Pedido #${idPedido} não encontrado`);
+    }
+
+    if (pedido.status?.nome !== 'Aguardando confirmação') {
+      throw new BadRequestException(
+        `O pedido #${idPedido} não está aguardando confirmação (status atual: "${pedido.status?.nome ?? 'desconhecido'}")`,
+      );
+    }
+
+    const statusConfirmado = await this.statusRepo.findOneBy({
+      nome: 'Confirmado',
+    });
+    if (!statusConfirmado) {
+      throw new NotFoundException('Status "Confirmado" não configurado');
+    }
+
+    const admin = await this.usuarioRepo.findOneBy({ idUsuario: adminId });
+
+    await this.dataSource.transaction(async (manager) => {
+      pedido.status = statusConfirmado;
+      await manager.save(Pedido, pedido);
+
+      await manager
+        .createQueryBuilder()
+        .update(Pagamento)
+        .set({
+          status: 'concluido',
+          dataPagamento: new Date(),
+          validadorNome: admin?.nome ?? 'Administrador',
+          validadorCargo: 'Administração DIACOM',
+        })
+        .where('id_pedido = :idPedido', { idPedido: pedido.idPedido })
+        .andWhere("tipo = 'entrada'")
+        .execute();
+
+      const historico = manager.create(HistoricoStatus, {
+        pedido,
+        status: statusConfirmado,
+        usuarioResponsavel: admin ?? null,
+        observacao: 'Comprovante validado e pagamento confirmado pelo administrador',
+      });
+      await manager.save(HistoricoStatus, historico);
+    });
+
+    return this.findOne(idPedido, adminId, true);
+  }
+
+  async solicitarReembolso(
+    idPedido: string,
+    usuarioId: string,
+    isAdmin: boolean,
+    dto: SolicitarReembolsoDto,
+  ): Promise<Pedido> {
+    const pedido = await this.pedidoRepo.findOne({
+      where: { idPedido },
+      relations: ['usuario', 'status', 'pagamentos'],
+    });
+
+    if (!pedido) {
+      throw new NotFoundException(`Pedido #${idPedido} não encontrado`);
+    }
+
+    if (!isAdmin && pedido.usuario.idUsuario !== usuarioId) {
+      throw new ForbiddenException(
+        'Você não tem permissão para solicitar reembolso deste pedido',
+      );
+    }
+
+    const statusPermitidos = [
+      'Confirmado',
+      'Em separação',
+      'Pronto para retirada',
+      'Entregue',
+    ];
+    if (!pedido.status || !statusPermitidos.includes(pedido.status.nome)) {
+      throw new BadRequestException(
+        `Não é possível solicitar reembolso para pedido no status "${pedido.status?.nome ?? 'desconhecido'}"`,
+      );
+    }
+
+    const statusSolicitacao = await this.statusRepo.findOneBy({
+      nome: 'Solicitação de reembolso',
+    });
+    if (!statusSolicitacao) {
+      throw new NotFoundException(
+        'Status "Solicitação de reembolso" não configurado',
+      );
+    }
+
+    const responsavel = await this.usuarioRepo.findOneBy({
+      idUsuario: usuarioId,
+    });
+
+    const detalhes = [
+      dto.motivo?.trim() ? `Motivo: ${dto.motivo.trim()}` : null,
+      dto.chavePix?.trim() ? `Chave Pix: ${dto.chavePix.trim()}` : null,
+    ]
+      .filter(Boolean)
+      .join(' | ');
+
+    await this.dataSource.transaction(async (manager) => {
+      pedido.status = statusSolicitacao;
+      await manager.save(Pedido, pedido);
+
+      if (detalhes) {
+        await manager
+          .createQueryBuilder()
+          .update(Pagamento)
+          .set({ motivoReembolso: detalhes })
+          .where('id_pedido = :idPedido', { idPedido: pedido.idPedido })
+          .andWhere("tipo = 'entrada'")
+          .execute();
+      }
+
+      const historico = manager.create(HistoricoStatus, {
+        pedido,
+        status: statusSolicitacao,
+        usuarioResponsavel: responsavel ?? null,
+        observacao: detalhes || 'Solicitação de reembolso aberta pelo comprador',
+      });
+      await manager.save(HistoricoStatus, historico);
+    });
+
+    return this.findOne(idPedido, usuarioId, true);
+  }
+
+  async efetivarReembolso(
+    idPedido: string,
+    adminId: string,
+    dto: EfetivarReembolsoDto,
+  ): Promise<Pedido> {
+    if (!dto.comprovanteReembolsoUrl || !dto.comprovanteReembolsoUrl.trim()) {
+      throw new BadRequestException(
+        'É obrigatório anexar o comprovante de reembolso',
+      );
+    }
+
+    const pedido = await this.pedidoRepo.findOne({
+      where: { idPedido },
+      relations: ['status', 'itens', 'itens.produto', 'pagamentos'],
+    });
+
+    if (!pedido) {
+      throw new NotFoundException(`Pedido #${idPedido} não encontrado`);
+    }
+
+    if (pedido.status?.nome !== 'Solicitação de reembolso') {
+      throw new BadRequestException(
+        `O pedido #${idPedido} não possui solicitação de reembolso pendente (status atual: "${pedido.status?.nome ?? 'desconhecido'}")`,
+      );
+    }
+
+    const statusReembolsado = await this.statusRepo.findOneBy({
+      nome: 'Reembolsado',
+    });
+    if (!statusReembolsado) {
+      throw new NotFoundException('Status "Reembolsado" não configurado');
+    }
+
+    const admin = await this.usuarioRepo.findOneBy({ idUsuario: adminId });
+
+    await this.dataSource.transaction(async (manager) => {
+      pedido.status = statusReembolsado;
+      await manager.save(Pedido, pedido);
+
+      // Restaura estoque dos produtos do pedido reembolsado
+      for (const item of pedido.itens ?? []) {
+        await manager.increment(
+          Produto,
+          { idProduto: item.produto.idProduto },
+          'estoque',
+          item.quantidade,
+        );
+      }
+
+      // Atualiza o pagamento original com os metadados de reembolso
+      await manager
+        .createQueryBuilder()
+        .update(Pagamento)
+        .set({
+          comprovanteReembolsoUrl: dto.comprovanteReembolsoUrl.trim(),
+          dataReembolso: new Date(),
+        })
+        .where('id_pedido = :idPedido', { idPedido: pedido.idPedido })
+        .andWhere("tipo = 'entrada'")
+        .execute();
+
+      // Registra saída de reembolso na tabela de pagamentos para constar na Transparência
+      const pagamentoOriginal = (pedido.pagamentos ?? []).find(
+        (p) => p.tipo === 'entrada',
+      );
+      const lancamentoReembolso = manager.create(Pagamento, {
+        pedido,
+        tipo: 'saida',
+        categoria: 'estorno',
+        valor: pedido.valorTotal,
+        metodo: pagamentoOriginal?.metodo ?? 'pix',
+        status: 'concluido',
+        dataPagamento: new Date(),
+        descricao: `Reembolso — Pedido #${pedido.idPedido}${dto.observacao?.trim() ? ` (${dto.observacao.trim()})` : ''}`,
+        comprovanteReembolsoUrl: dto.comprovanteReembolsoUrl.trim(),
+        dataReembolso: new Date(),
+        validadorNome: admin?.nome ?? 'Administrador',
+        validadorCargo: 'Administração DIACOM',
+        ativo: true,
+      });
+      await manager.save(Pagamento, lancamentoReembolso);
+
+      const historico = manager.create(HistoricoStatus, {
+        pedido,
+        status: statusReembolsado,
+        usuarioResponsavel: admin ?? null,
+        observacao:
+          dto.observacao?.trim() ||
+          'Reembolso efetivado com comprovante anexado pelo administrador',
+      });
+      await manager.save(HistoricoStatus, historico);
+    });
+
+    return this.findOne(idPedido, adminId, true);
   }
 }

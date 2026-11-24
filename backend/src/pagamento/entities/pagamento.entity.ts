@@ -107,6 +107,34 @@ export class Pagamento {
   validadorCargo: string | null;
 
   @Column({
+    name: 'comprovante_url',
+    type: 'text',
+    nullable: true,
+  })
+  comprovanteUrl: string | null;
+
+  @Column({
+    name: 'comprovante_reembolso_url',
+    type: 'text',
+    nullable: true,
+  })
+  comprovanteReembolsoUrl: string | null;
+
+  @Column({
+    name: 'motivo_reembolso',
+    type: 'text',
+    nullable: true,
+  })
+  motivoReembolso: string | null;
+
+  @Column({
+    name: 'data_reembolso',
+    type: 'timestamp',
+    nullable: true,
+  })
+  dataReembolso: Date | null;
+
+  @Column({
     type: 'boolean',
     nullable: false,
     default: true,

@@ -20,7 +20,7 @@ export function Transparencia() {
   const { txns, role, addRepasse, removeTxn, offerDeadline, setOfferDeadline } = useStore()
 
   const [filter, setFilter] = useState<
-    "Todos" | "Vendas" | "Custo" | "Repasse" | "Taxa"
+    "Todos" | "Vendas" | "Custo" | "Repasse" | "Taxa" | "Reembolso"
   >("Todos")
 
   // Deadline Modal state
@@ -173,7 +173,7 @@ export function Transparencia() {
       {/* Filter Chips & Action Bar */}
       <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
-          {(["Todos", "Vendas", "Taxa", "Custo", "Repasse"] as const).map((f) => (
+          {(["Todos", "Vendas", "Taxa", "Custo", "Repasse", "Reembolso"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -184,9 +184,9 @@ export function Transparencia() {
               }`}
             >
               {f}
-              {f === "Repasse" && (
+              {(f === "Repasse" || f === "Reembolso") && (
                 <span className="ml-1.5 font-mono text-xs opacity-75">
-                  ({txns.filter((t) => t.category === "Repasse").length})
+                  ({txns.filter((t) => t.category === f).length})
                 </span>
               )}
             </button>
@@ -535,12 +535,27 @@ export function Transparencia() {
                       {t.order}
                     </td>
                     <td className="px-4 py-3">
-                      <div>
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-fg">{t.description}</span>
                         {t.category === "Repasse" && (
-                          <span className="ml-2 rounded-full border border-purple-400/40 bg-purple-400/10 px-2 py-0.2 font-mono text-[10px] text-purple-300">
+                          <span className="rounded-full border border-purple-400/40 bg-purple-400/10 px-2 py-0.2 font-mono text-[10px] text-purple-300">
                             Repasse
                           </span>
+                        )}
+                        {t.category === "Reembolso" && (
+                          <span className="rounded-full border border-orange-400/40 bg-orange-400/10 px-2 py-0.2 font-mono text-[10px] text-orange-300">
+                            Reembolso
+                          </span>
+                        )}
+                        {t.category === "Reembolso" && t.comprovanteUrl && (
+                          <a
+                            href={t.comprovanteUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-md border border-cyan/30 bg-cyan/10 px-1.5 py-0.5 font-mono text-[10px] text-cyan hover:bg-cyan/20"
+                          >
+                            📎 Comprovante
+                          </a>
                         )}
                       </div>
                     </td>

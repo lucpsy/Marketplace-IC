@@ -8,8 +8,17 @@ import { useRouter } from "next/navigation";
 export function CartDrawer() {
   const router = useRouter();
   const onSeeOrders = () => router.push("/meus-pedidos");
-  const { cart, setQty, checkout, promotions, coupons, cartOpen, setCartOpen } =
-    useStore();
+  const {
+    cart,
+    setQty,
+    checkout,
+    uploadComprovante,
+    promotions,
+    coupons,
+    validateCoupon,
+    cartOpen,
+    setCartOpen,
+  } = useStore();
   const onClose = () => setCartOpen(false);
 
   const [code, setCode] = useState("");
@@ -19,6 +28,8 @@ export function CartDrawer() {
     "cart",
   );
   const [payMethod, setPayMethod] = useState<"Pix" | "Cartão">("Pix");
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [placed, setPlaced] = useState<{ id: string; pin: string } | null>(
     null,
   );
@@ -39,41 +50,48 @@ export function CartDrawer() {
   const shipping = coupon?.kind === "shipping" ? 0 : baseShipping;
   const total = Math.max(0, subtotal - discount) + shipping;
 
-  function applyCoupon() {
+  async function applyCoupon() {
     setError("");
-    const found = coupons.find(
-      (c) => c.code.toUpperCase() === code.trim().toUpperCase(),
-    );
-    if (!found) {
+    const result = await validateCoupon(code, subtotal);
+    if (!result.valid || !result.coupon) {
       setCoupon(null);
-      setError("Cupom inválido.");
+      setError(result.error || "Cupom inválido.");
       return;
     }
-    if (found.minSubtotal && subtotal < found.minSubtotal) {
-      setCoupon(null);
-      setError(`Válido a partir de ${brl(found.minSubtotal)}.`);
-      return;
-    }
-    setCoupon(found);
+    setCoupon(result.coupon);
   }
 
-  function pay() {
+  function handleSelectReceipt(file: File | null) {
+    if (receiptPreview) URL.revokeObjectURL(receiptPreview);
+    setReceiptFile(file);
+    if (file && file.type.startsWith("image/")) {
+      setReceiptPreview(URL.createObjectURL(file));
+    } else {
+      setReceiptPreview(null);
+    }
+  }
+
+  async function pay() {
+    if (!receiptFile) {
+      alert("Por favor, anexe o comprovante de pagamento antes de continuar.");
+      return;
+    }
     setStep("processing");
-    window.setTimeout(async () => {
-      try {
-        const res = await checkout({
-          items: cart,
-          total,
-          method: payMethod,
-          couponCode: coupon?.code,
-        });
-        setPlaced(res);
-        setStep("done");
-      } catch (err: any) {
-        alert(err.message || "Erro ao finalizar o pedido.");
-        setStep("pay");
-      }
-    }, 1900);
+    try {
+      const comprovanteUrl = await uploadComprovante(receiptFile);
+      const res = await checkout({
+        items: cart,
+        total,
+        method: payMethod,
+        couponCode: coupon?.code,
+        comprovanteUrl,
+      });
+      setPlaced(res);
+      setStep("done");
+    } catch (err: any) {
+      alert(err.message || "Erro ao finalizar o pedido.");
+      setStep("pay");
+    }
   }
 
   function reset() {
@@ -82,6 +100,7 @@ export function CartDrawer() {
     setCode("");
     setError("");
     setPlaced(null);
+    handleSelectReceipt(null);
   }
 
   return (
@@ -115,24 +134,25 @@ export function CartDrawer() {
           <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
             <div className="size-10 animate-spin rounded-full border-2 border-line border-t-cyan" />
             <p className="text-sm text-muted">
-              {payMethod === "Pix"
-                ? "Confirmando pagamento via Pix…"
-                : "Autorizando cartão…"}
+              Enviando comprovante e registrando seu pedido…
             </p>
           </div>
         ) : step === "done" && placed ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
-            <div className="grid size-14 place-items-center rounded-full bg-cyan/15 text-2xl text-cyan">
+            <div className="grid size-14 place-items-center rounded-full bg-amber-400/15 text-2xl text-amber-300">
               ✓
             </div>
             <h3 className="font-display text-xl font-bold">
-              Pagamento aprovado!
+              Comprovante enviado!
             </h3>
             <p className="font-mono text-sm text-cyan">{placed.id}</p>
+            <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 font-mono text-[11px] text-amber-300">
+              Aguardando confirmação
+            </span>
             <PinBadge pin={placed.pin} />
             <p className="text-sm text-muted">
-              Guarde o PIN — ele é necessário para retirar seu pedido em
-              qualquer fornecedor. Acompanhe o preparo em Meus Pedidos.
+              Seu comprovante foi recebido e está em análise pela diretoria do
+              DIACOM. Assim que confirmado, o pedido seguirá para separação.
             </p>
             <div className="mt-2 flex w-full flex-col gap-2">
               <button
@@ -166,6 +186,9 @@ export function CartDrawer() {
             total={total}
             method={payMethod}
             setMethod={setPayMethod}
+            receiptFile={receiptFile}
+            receiptPreview={receiptPreview}
+            onSelectReceipt={handleSelectReceipt}
             onBack={() => setStep("cart")}
             onPay={pay}
           />
@@ -293,12 +316,18 @@ function PaymentScreen({
   total,
   method,
   setMethod,
+  receiptFile,
+  receiptPreview,
+  onSelectReceipt,
   onBack,
   onPay,
 }: {
   total: number;
   method: "Pix" | "Cartão";
   setMethod: (m: "Pix" | "Cartão") => void;
+  receiptFile: File | null;
+  receiptPreview: string | null;
+  onSelectReceipt: (file: File | null) => void;
   onBack: () => void;
   onPay: () => void;
 }) {
@@ -320,7 +349,7 @@ function PaymentScreen({
             >
               {m}
               <span className="mt-0.5 block font-mono text-[10px] font-normal opacity-70">
-                taxa {m === "Pix" ? "1%" : "4%"}
+                comprovante obrigatório
               </span>
             </button>
           ))}
@@ -328,32 +357,72 @@ function PaymentScreen({
 
         {method === "Pix" ? (
           <div className="rounded-xl border border-line bg-panel-2 p-4 text-center">
-            <div className="mx-auto grid size-36 place-items-center rounded-lg bg-fg">
+            <div className="mx-auto grid size-32 place-items-center rounded-lg bg-fg">
               <QrPlaceholder />
             </div>
             <p className="mt-3 text-xs text-muted">
-              Escaneie o QR ou copie o código Pix
+              Realize o Pix de <strong className="text-cyan">{brl(total)}</strong> e anexe o comprovante abaixo
             </p>
             <p className="mt-2 truncate rounded-lg border border-line bg-ink px-3 py-2 font-mono text-[10px] text-muted">
               {pixCode}
             </p>
           </div>
         ) : (
-          <div className="space-y-2.5 rounded-xl border border-line bg-panel-2 p-4">
-            <Field2
-              label="Número do cartão"
-              placeholder="4000 0000 0000 0000"
-            />
-            <div className="grid grid-cols-2 gap-2.5">
-              <Field2 label="Validade" placeholder="MM/AA" />
-              <Field2 label="CVV" placeholder="123" />
-            </div>
-            <Field2 label="Nome impresso" placeholder="COMO NO CARTÃO" />
+          <div className="rounded-xl border border-line bg-panel-2 p-4 text-xs text-muted space-y-1.5">
+            <p className="font-semibold text-fg">Pagamento via Cartão / Link</p>
+            <p>
+              Efetue o pagamento de <strong className="text-cyan">{brl(total)}</strong> na maquininha ou link do DIACOM e anexe a foto ou PDF do comprovante abaixo.
+            </p>
           </div>
         )}
-        <p className="text-center text-[11px] text-muted">
-          Ambiente de demonstração — nenhuma cobrança real é feita.
-        </p>
+
+        {/* Upload de Comprovante */}
+        <div className="rounded-xl border border-cyan/30 bg-panel-2 p-4">
+          <p className="label text-cyan">Comprovante de pagamento *</p>
+          <p className="mt-1 text-xs text-muted">
+            Envie uma imagem (PNG, JPG, WEBP) ou PDF de até 5 MB.
+          </p>
+
+          <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-line bg-ink px-4 py-5 text-center transition-colors hover:border-cyan">
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,application/pdf"
+              className="hidden"
+              onChange={(e) => onSelectReceipt(e.target.files?.[0] ?? null)}
+            />
+            {receiptFile ? (
+              <div className="w-full space-y-2">
+                {receiptPreview ? (
+                  <img
+                    src={receiptPreview}
+                    alt="Prévia do comprovante"
+                    className="mx-auto max-h-36 rounded-lg border border-line object-contain"
+                  />
+                ) : (
+                  <div className="mx-auto inline-flex items-center gap-2 rounded-lg border border-cyan/40 bg-cyan/10 px-3 py-2 font-mono text-xs text-cyan">
+                    📄 {receiptFile.name}
+                  </div>
+                )}
+                <p className="truncate font-mono text-[11px] text-cyan">
+                  {receiptFile.name} ({(receiptFile.size / 1024).toFixed(0)} KB)
+                </p>
+                <p className="text-[11px] text-muted">
+                  Clique para trocar o arquivo
+                </p>
+              </div>
+            ) : (
+              <>
+                <span className="text-xl text-cyan">📎</span>
+                <span className="mt-1 text-xs font-semibold text-fg">
+                  Selecionar comprovante
+                </span>
+                <span className="mt-0.5 text-[11px] text-muted">
+                  PNG, JPG, WEBP ou PDF
+                </span>
+              </>
+            )}
+          </label>
+        </div>
       </div>
 
       <div className="border-t border-line px-5 py-4">
@@ -366,9 +435,10 @@ function PaymentScreen({
           </button>
           <button
             onClick={onPay}
-            className="flex-1 rounded-xl bg-cyan py-3 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5]"
+            disabled={!receiptFile}
+            className="flex-1 rounded-xl bg-cyan py-3 text-sm font-semibold text-ink transition-colors hover:bg-[#5cebf5] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {method === "Pix" ? "Já paguei" : "Pagar"} · {brl(total)}
+            Enviar comprovante · {brl(total)}
           </button>
         </div>
       </div>
