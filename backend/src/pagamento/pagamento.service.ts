@@ -811,6 +811,11 @@ export class PagamentoService {
 
   async remove(idPagamento: string) {
     const pagamento = await this.findOneAdmin(idPagamento);
+    if (pagamento.pedido) {
+      throw new BadRequestException(
+        'Lançamentos vinculados a pedidos não podem ser removidos manualmente.',
+      );
+    }
     pagamento.ativo = false;
     await this.pagamentoRepo.save(pagamento);
     return { message: `Lançamento #${idPagamento} desativado com sucesso` };

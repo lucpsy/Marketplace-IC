@@ -12,7 +12,6 @@ import { StatusPedido } from '../pedido/entities/status_pedido.entity';
 import { TransicaoStatus } from '../pedido/entities/transicao-status.entity';
 import { CreateFornecedorDto } from './dto/create-fornecedor.dto';
 import { UpdateFornecedorDto } from './dto/update-fornecedor.dto';
-import { seedFornecedores } from '../database/seeds/seed-fornecedores';
 
 @Injectable()
 export class FornecedorService implements OnModuleInit {
@@ -31,7 +30,6 @@ export class FornecedorService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await seedFornecedores(this.fornecedorRepo);
     const existentes = await this.fornecedorRepo.find();
     for (const f of existentes) {
       await this.sincronizarFluxoStatus(f.dadosPagamento);

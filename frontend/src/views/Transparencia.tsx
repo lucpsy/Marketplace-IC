@@ -644,7 +644,7 @@ export function Transparencia() {
 
                     {/* Actions Column */}
                     <td className="whitespace-nowrap px-4 py-3 text-right">
-                      {role === "admin" ? (
+                      {role === "admin" && t.order === "—" ? (
                         <button
                           onClick={() => handleRemove(t)}
                           className="rounded px-2.5 py-1 text-xs text-red-400 transition-colors hover:bg-red-400/10 hover:text-red-300"

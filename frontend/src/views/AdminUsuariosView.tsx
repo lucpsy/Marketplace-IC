@@ -113,6 +113,48 @@ export function AdminUsuariosView() {
     }
   }
 
+  async function handleAlternarStatus(alvo: UsuarioAPI) {
+    const token = localStorage.getItem("diacom_token");
+    if (!token) return;
+
+    const isAtivoAtual = alvo.status?.toLowerCase() === "ativo";
+    const novoStatus = isAtivoAtual ? "inativo" : "ativo";
+    const confirmMsg = isAtivoAtual
+      ? `Desativar o usuário ${alvo.nome}? Ele não poderá mais fazer login.`
+      : `Reativar o usuário ${alvo.nome}?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      setAtualizandoId(alvo.idUsuario);
+      const res = await fetch(`${API_URL}/usuario/${alvo.idUsuario}`, {
+        method: isAtivoAtual ? "DELETE" : "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        ...(isAtivoAtual ? {} : { body: JSON.stringify({ status: "ativo" }) }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(
+          err?.message || "Não foi possível alterar o status do usuário.",
+        );
+      }
+
+      setUsuarios((prev) =>
+        prev.map((u) =>
+          u.idUsuario === alvo.idUsuario ? { ...u, status: novoStatus } : u,
+        ),
+      );
+    } catch (err: any) {
+      alert(err.message || "Erro ao atualizar status.");
+    } finally {
+      setAtualizandoId(null);
+    }
+  }
+
   const usuariosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
 
@@ -327,22 +369,36 @@ export function AdminUsuariosView() {
                             Você
                           </span>
                         ) : (
-                          <button
-                            type="button"
-                            disabled={atualizandoId === u.idUsuario}
-                            onClick={() => handleAlterarCargo(u)}
-                            className={`rounded-lg border px-3 py-1.5 font-mono text-[11px] font-semibold transition-colors disabled:opacity-50 ${
-                              isAdmin
-                                ? "border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
-                                : "border-cyan/40 bg-cyan/10 text-cyan hover:bg-cyan/20"
-                            }`}
-                          >
-                            {atualizandoId === u.idUsuario
-                              ? "Salvando..."
-                              : isAdmin
-                                ? "Rebaixar a Cliente"
-                                : "Promover a Admin"}
-                          </button>
+                          <div className="inline-flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              disabled={atualizandoId === u.idUsuario}
+                              onClick={() => handleAlterarCargo(u)}
+                              className={`rounded-lg border px-3 py-1.5 font-mono text-[11px] font-semibold transition-colors disabled:opacity-50 ${
+                                isAdmin
+                                  ? "border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                                  : "border-cyan/40 bg-cyan/10 text-cyan hover:bg-cyan/20"
+                              }`}
+                            >
+                              {atualizandoId === u.idUsuario
+                                ? "Salvando..."
+                                : isAdmin
+                                  ? "Rebaixar a Cliente"
+                                  : "Promover a Admin"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={atualizandoId === u.idUsuario}
+                              onClick={() => handleAlternarStatus(u)}
+                              className={`rounded-lg border px-3 py-1.5 font-mono text-[11px] font-semibold transition-colors disabled:opacity-50 ${
+                                isAtivo
+                                  ? "border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                                  : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                              }`}
+                            >
+                              {isAtivo ? "Desativar" : "Reativar"}
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
