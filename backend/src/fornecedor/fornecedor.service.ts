@@ -140,7 +140,41 @@ export class FornecedorService implements OnModuleInit {
     return salvo;
   }
 
-  async findAll(filtros?: { status?: string; busca?: string }): Promise<Fornecedor[]> {
+  private sanitizarFornecedorPublico(f: Fornecedor) {
+    let dadosPublicos: string | null = null;
+    if (f.dadosPagamento) {
+      try {
+        const parsed = JSON.parse(f.dadosPagamento);
+        if (parsed && typeof parsed === 'object') {
+          dadosPublicos = JSON.stringify({
+            pickupLocation: parsed.pickupLocation ?? parsed.pontoRetirada,
+            preparationFlow: Array.isArray(parsed.preparationFlow)
+              ? parsed.preparationFlow
+              : undefined,
+            currentStage: parsed.currentStage,
+          });
+        }
+      } catch {
+        dadosPublicos = null;
+      }
+    }
+
+    return {
+      idFornecedor: f.idFornecedor,
+      nomeRazaoSocial: f.nomeRazaoSocial,
+      nomeFantasia: f.nomeFantasia,
+      email: f.email,
+      telefone: f.telefone,
+      status: f.status,
+      dadosPagamento: dadosPublicos,
+    };
+  }
+
+  async findAll(filtros?: {
+    status?: string;
+    busca?: string;
+    apenasPublico?: boolean;
+  }): Promise<any[]> {
     const qb = this.fornecedorRepo.createQueryBuilder('fornecedor');
 
     if (filtros?.status) {
@@ -156,20 +190,26 @@ export class FornecedorService implements OnModuleInit {
 
     qb.orderBy('fornecedor.nomeFantasia', 'ASC');
 
-    return qb.getMany();
+    const lista = await qb.getMany();
+    if (filtros?.apenasPublico) {
+      return lista.map((f) => this.sanitizarFornecedorPublico(f));
+    }
+    return lista;
   }
 
-  async findOne(id: string): Promise<Fornecedor> {
+  async findOne(id: string, apenasPublico = false): Promise<any> {
     const fornecedor = await this.fornecedorRepo.findOne({
       where: { idFornecedor: id },
-      relations: ['produtos'],
+      relations: apenasPublico ? [] : ['produtos'],
     });
 
-    if (!fornecedor) {
+    if (!fornecedor || (apenasPublico && fornecedor.status !== 'ativo')) {
       throw new NotFoundException(`Fornecedor #${id} não encontrado`);
     }
 
-    return fornecedor;
+    return apenasPublico
+      ? this.sanitizarFornecedorPublico(fornecedor)
+      : fornecedor;
   }
 
   async update(id: string, updateFornecedorDto: UpdateFornecedorDto): Promise<Fornecedor> {

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useStore, type Role } from "@/lib/store"
-import { brl, fetchProtectedAssetBlobUrl, type Txn } from "@/lib/data"
+import { brl, fetchProtectedAssetBlobUrl, isSafeHref, type Txn } from "@/lib/data"
 import { Stat, StatusPill } from "@/components/Shared"
 import { OfferDeadline } from "@/components/OfferDeadline"
 import { useRouter } from "next/navigation"
@@ -584,16 +584,18 @@ export function Transparencia() {
                             Reembolso
                           </span>
                         )}
-                        {t.category === "Repasse" && t.comprovanteUrl && (
-                          <a
-                            href={t.comprovanteUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-md border border-purple-400/40 bg-purple-400/10 px-1.5 py-0.5 font-mono text-[10px] text-purple-300 hover:bg-purple-400/20"
-                          >
-                            Comprovante
-                          </a>
-                        )}
+                        {t.category === "Repasse" &&
+                          t.comprovanteUrl &&
+                          isSafeHref(t.comprovanteUrl) && (
+                            <a
+                              href={t.comprovanteUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-md border border-purple-400/40 bg-purple-400/10 px-1.5 py-0.5 font-mono text-[10px] text-purple-300 hover:bg-purple-400/20"
+                            >
+                              Comprovante
+                            </a>
+                          )}
                         {t.category === "Reembolso" && t.comprovanteUrl && (
                           <button
                             type="button"

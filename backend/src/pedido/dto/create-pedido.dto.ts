@@ -1,30 +1,29 @@
-import { IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsIn,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 import {
   METODOS_PAGAMENTO,
   MetodoPagamento,
 } from '../../pagamento/dto/create-pagamento.dto';
+import {
+  COMPROVANTE_URL_MESSAGE,
+  COMPROVANTE_URL_REGEX,
+} from '../../common/security/url-validation';
 
 export class CreatePedidoDto {
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   observacao?: string;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber({}, { message: 'valorDesconto deve ser numérico' })
-  @Min(0, { message: 'valorDesconto não pode ser negativo' })
-  valorDesconto?: number;
-
-  @IsOptional()
   @IsString()
+  @MaxLength(60)
   codigoCupom?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber({}, { message: 'frete deve ser numérico' })
-  @Min(0, { message: 'frete não pode ser negativo' })
-  frete?: number;
 
   @IsOptional()
   @IsString()
@@ -35,5 +34,7 @@ export class CreatePedidoDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(300)
+  @Matches(COMPROVANTE_URL_REGEX, { message: COMPROVANTE_URL_MESSAGE })
   comprovanteUrl?: string;
 }

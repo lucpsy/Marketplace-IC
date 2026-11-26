@@ -10,7 +10,6 @@ import {
   Req,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { JwtService } from '@nestjs/jwt';
 import { PromocaoService } from './promo.service';
 import { CreatePromocaoDto } from './dto/create-promocao.dto';
 import { UpdatePromocaoDto } from './dto/update-promocao.dto';
@@ -20,34 +19,15 @@ import { ValidarCupomDto } from './dto/validar-cupom.dto';
 import { SimularDescontoDto } from './dto/simular-desconto.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { Admin } from '../auth/decorators/role.decorator';
+import { OptionalAuthService } from '../common/security/optional-auth.service';
+import { RateLimit } from '../common/security/rate-limit.guard';
 
 @Controller('promocao')
 export class PromocaoController {
   constructor(
     private readonly promocaoService: PromocaoService,
-    private readonly jwtService: JwtService,
+    private readonly optionalAuth: OptionalAuthService,
   ) {}
-
-  private isAdminRequest(req: Request): boolean {
-    if ((req as any)?.user?.role === 'admin') {
-      return true;
-    }
-
-    const authHeader = req.headers?.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      try {
-        const payload = this.jwtService.verify(token, {
-          secret: process.env.JWT_SECRET,
-        });
-        return payload?.role === 'admin';
-      } catch {
-        return false;
-      }
-    }
-
-    return false;
-  }
 
   /* -------------------------------------------------------- ROTAS PÚBLICAS */
 
@@ -64,12 +44,14 @@ export class PromocaoController {
   }
 
   @Public()
+  @RateLimit(20, 60_000, 'validar-cupom')
   @Post('cupons/validar')
   validarCupom(@Body() dto: ValidarCupomDto) {
     return this.promocaoService.validarCupom(dto);
   }
 
   @Public()
+  @RateLimit(30, 60_000, 'simular-desconto')
   @Post('calcular')
   simularDesconto(@Body() dto: SimularDescontoDto) {
     return this.promocaoService.simularDesconto(dto);
@@ -77,7 +59,7 @@ export class PromocaoController {
 
   @Public()
   @Get()
-  findAll(
+  async findAll(
     @Req() req: Request,
     @Query('status') status?: string,
     @Query('tipoDesconto') tipoDesconto?: string,
@@ -85,7 +67,7 @@ export class PromocaoController {
     @Query('apenasAtivas') apenasAtivas?: string,
     @Query('somenteCupons') somenteCupons?: string,
   ) {
-    const isAdmin = this.isAdminRequest(req);
+    const isAdmin = await this.optionalAuth.isActiveAdmin(req);
     const filtrarApenasAtivas = isAdmin
       ? apenasAtivas === 'true'
       : true;
@@ -101,8 +83,8 @@ export class PromocaoController {
 
   @Public()
   @Get(':id')
-  findOne(@Req() req: Request, @Param('id') id: string) {
-    const isAdmin = this.isAdminRequest(req);
+  async findOne(@Req() req: Request, @Param('id') id: string) {
+    const isAdmin = await this.optionalAuth.isActiveAdmin(req);
     return this.promocaoService.findOne(id, !isAdmin);
   }
 

@@ -30,11 +30,27 @@ export class CatalogoService {
 
   /* -------------------------------------------------------- PRODUTOS */
 
+  private sanitizarProdutoPublico<T extends Record<string, any>>(produto: T) {
+    const { precoCusto: _precoCusto, fornecedor, ...resto } = produto;
+    return {
+      ...resto,
+      fornecedor: fornecedor
+        ? {
+            idFornecedor: fornecedor.idFornecedor,
+            nomeFantasia: fornecedor.nomeFantasia,
+            nomeRazaoSocial: fornecedor.nomeRazaoSocial,
+            status: fornecedor.status,
+          }
+        : undefined,
+    };
+  }
+
   async findAllProdutos(filtros?: {
     categoriaId?: string;
     fornecedorId?: string;
     busca?: string;
     apenasAtivos?: boolean;
+    incluirDadosInternos?: boolean;
   }) {
     const qb = this.produtoRepo
       .createQueryBuilder('produto')
@@ -68,7 +84,14 @@ export class CatalogoService {
     }
 
     const produtos = await qb.getMany();
-    return this.promocaoService.enriquecerProdutosComPromocao(produtos);
+    const enriquecidos =
+      await this.promocaoService.enriquecerProdutosComPromocao(produtos);
+
+    if (!filtros?.incluirDadosInternos) {
+      return enriquecidos.map((p) => this.sanitizarProdutoPublico(p));
+    }
+
+    return enriquecidos;
   }
 
   private async findOneProdutoEntity(id: string): Promise<Produto> {
@@ -88,11 +111,16 @@ export class CatalogoService {
     return produto;
   }
 
-  async findOneProduto(id: string) {
+  async findOneProduto(id: string, apenasPublico = false) {
     const produto = await this.findOneProdutoEntity(id);
+    if (apenasPublico && produto.status !== 'ativo') {
+      throw new NotFoundException(`Produto #${id} não encontrado`);
+    }
     const [enriquecido] =
       await this.promocaoService.enriquecerProdutosComPromocao([produto]);
-    return enriquecido;
+    return apenasPublico
+      ? this.sanitizarProdutoPublico(enriquecido)
+      : enriquecido;
   }
 
   async createProduto(dto: CreateProdutoDto) {

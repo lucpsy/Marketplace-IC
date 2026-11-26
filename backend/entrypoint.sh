@@ -1,14 +1,14 @@
 #!/bin/sh
+set -e
 
 echo "Executando migrations..."
 
-npm run migration:run
-
-if [ $? -ne 0 ]; then
-    echo "Falha ao executar migrations!"
-    exit 1
+if [ "$NODE_ENV" = "production" ]; then
+  npm run migration:run:prod
+  echo "Iniciando NestJS em modo produção..."
+  exec npm run start:prod
+else
+  npm run migration:run
+  echo "Iniciando NestJS em modo desenvolvimento..."
+  exec npm run start:dev
 fi
-
-echo "Iniciando NestJS..."
-
-exec npm run start:dev

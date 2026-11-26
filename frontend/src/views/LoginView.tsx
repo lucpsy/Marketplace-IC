@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { API_URL } from "@/lib/data";
+import { API_URL, apiFetch } from "@/lib/data";
 
 // ---------------------------------------------------------------------------
 // Sub-component: Register Form
@@ -32,10 +32,17 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
       setFeedback({ type: "error", message: "Informe um e-mail válido." });
       return;
     }
-    if (password.length < 6) {
+    if (password.length < 8) {
       setFeedback({
         type: "error",
-        message: "A senha deve ter ao menos 6 caracteres.",
+        message: "A senha deve ter ao menos 8 caracteres.",
+      });
+      return;
+    }
+    if (password.length > 72) {
+      setFeedback({
+        type: "error",
+        message: "A senha deve ter no máximo 72 caracteres.",
       });
       return;
     }
@@ -48,7 +55,7 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
     setFeedback(null);
 
     try {
-      const res = await fetch(`${API_URL}/auth/register`, {
+      const res = await apiFetch(`${API_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -165,7 +172,7 @@ function RegisterForm({ onCancel }: { onCancel: () => void }) {
             type={showPass ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Mínimo 6 caracteres"
+            placeholder="Mínimo 8 caracteres"
             required
             className="mt-1 w-full rounded-xl border border-line bg-ink px-3.5 py-2.5 font-mono text-sm text-fg outline-none transition-colors placeholder:text-muted/40 focus:border-cyan"
           />

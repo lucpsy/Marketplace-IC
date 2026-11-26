@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   API_URL,
+  apiFetch,
   resolveAssetUrl,
   DEFAULT_PREPARATION_FLOW,
   type Product,
@@ -150,10 +151,6 @@ export function useStore() {
 function getAuthHeaders(withJson = false): Record<string, string> {
   const headers: Record<string, string> = {};
   if (withJson) headers["Content-Type"] = "application/json";
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("diacom_token");
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
   return headers;
 }
 
@@ -414,12 +411,8 @@ export function AppStore({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") {
       localStorage.setItem("diacom_offer_deadline", deadline);
     }
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("diacom_token")
-        : null;
-    if (token) {
-      fetch(`${API_URL}/pedido/prazo-compras`, {
+    if (user && role === "admin") {
+      apiFetch(`${API_URL}/pedido/prazo-compras`, {
         method: "PATCH",
         headers: getAuthHeaders(true),
         body: JSON.stringify({ offerDeadline: deadline }),
@@ -433,7 +426,7 @@ export function AppStore({ children }: { children: ReactNode }) {
 
   async function refreshPromotions() {
     try {
-      const res = await fetch(`${API_URL}/promocao`, {
+      const res = await apiFetch(`${API_URL}/promocao`, {
         headers: getAuthHeaders(),
       });
       if (!res.ok) return;
@@ -464,8 +457,8 @@ export function AppStore({ children }: { children: ReactNode }) {
   async function refreshTransparencia() {
     try {
       const [resResumo, resLanc] = await Promise.all([
-        fetch(`${API_URL}/pagamento/transparencia/resumo`),
-        fetch(`${API_URL}/pagamento/transparencia/lancamentos?limite=200`),
+        apiFetch(`${API_URL}/pagamento/transparencia/resumo`),
+        apiFetch(`${API_URL}/pagamento/transparencia/lancamentos?limite=200`),
       ]);
 
       if (resResumo.ok) {
@@ -495,18 +488,13 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function refreshOrders(targetRole: Role) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
-
     const endpoint =
       targetRole === "admin"
         ? `${API_URL}/pedido`
         : `${API_URL}/pedido/meus`;
 
     try {
-      const res = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(endpoint);
       if (!res.ok) return;
       const data = await res.json();
 
@@ -521,9 +509,9 @@ export function AppStore({ children }: { children: ReactNode }) {
   async function refreshCatalog() {
     try {
       const [resProd, resCat, resForn] = await Promise.all([
-        fetch(`${API_URL}/catalogo/produtos`, { headers: getAuthHeaders() }),
-        fetch(`${API_URL}/catalogo/categorias`),
-        fetch(`${API_URL}/fornecedor`).catch(() => null),
+        apiFetch(`${API_URL}/catalogo/produtos`, { headers: getAuthHeaders() }),
+        apiFetch(`${API_URL}/catalogo/categorias`),
+        apiFetch(`${API_URL}/fornecedor`).catch(() => null),
       ]);
 
       let loadedSuppliers = suppliers;
@@ -580,10 +568,10 @@ export function AppStore({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function restaurarSessao() {
-      const savedToken = localStorage.getItem("diacom_token");
-      const savedUserRaw = localStorage.getItem("diacom_user");
-      if (!savedToken) return;
+      // Limpa eventual token legado em texto puro do localStorage
+      localStorage.removeItem("diacom_token");
 
+      const savedUserRaw = localStorage.getItem("diacom_user");
       if (savedUserRaw) {
         try {
           const parsed: MockUser = JSON.parse(savedUserRaw);
@@ -597,12 +585,13 @@ export function AppStore({ children }: { children: ReactNode }) {
       }
 
       try {
-        const res = await fetch(`${API_URL}/usuario/profile`, {
-          headers: { Authorization: `Bearer ${savedToken}` },
-        });
+        const res = await apiFetch(`${API_URL}/usuario/profile`);
 
         if (res.status === 401 || res.status === 403) {
-          logout();
+          localStorage.removeItem("diacom_user");
+          setUser(null);
+          setRoleState("cliente");
+          setOrders([]);
           return;
         }
 
@@ -634,7 +623,7 @@ export function AppStore({ children }: { children: ReactNode }) {
     refreshCatalog();
     refreshPromotions();
     refreshTransparencia();
-    fetch(`${API_URL}/pedido/prazo-compras`)
+    apiFetch(`${API_URL}/pedido/prazo-compras`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         const deadline = data?.offerDeadline ?? "";
@@ -693,10 +682,9 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function createCategory(name: string): Promise<boolean> {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return false;
+    if (!user) return false;
 
-    const res = await fetch(`${API_URL}/catalogo/categorias`, {
+    const res = await apiFetch(`${API_URL}/catalogo/categorias`, {
       method: "POST",
       headers: getAuthHeaders(true),
       body: JSON.stringify({ nome: name.trim() }),
@@ -714,15 +702,14 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function addProduct(p: Product) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
     const payload = {
       ...buildProdutoPayload(p),
       sku: `prod-${Date.now()}`,
     };
 
-    const res = await fetch(`${API_URL}/catalogo/produtos`, {
+    const res = await apiFetch(`${API_URL}/catalogo/produtos`, {
       method: "POST",
       headers: getAuthHeaders(true),
       body: JSON.stringify(payload),
@@ -738,13 +725,12 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function updateProduct(p: Product) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
     // Garante que temos a lista de categorias atualizada do banco
     let cats = backendCategories;
     try {
-      const resCat = await fetch(`${API_URL}/catalogo/categorias`);
+      const resCat = await apiFetch(`${API_URL}/catalogo/categorias`);
       if (resCat.ok) {
         const data = await resCat.json();
         if (Array.isArray(data)) {
@@ -758,7 +744,7 @@ export function AppStore({ children }: { children: ReactNode }) {
 
     const payload = buildProdutoPayload(p, cats);
 
-    const res = await fetch(`${API_URL}/catalogo/produtos/${p.id}`, {
+    const res = await apiFetch(`${API_URL}/catalogo/produtos/${p.id}`, {
       method: "PATCH",
       headers: getAuthHeaders(true),
       body: JSON.stringify(payload),
@@ -774,10 +760,9 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function removeProduct(id: string) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
-    const res = await fetch(`${API_URL}/catalogo/produtos/${id}`, {
+    const res = await apiFetch(`${API_URL}/catalogo/produtos/${id}`, {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
@@ -807,7 +792,7 @@ export function AppStore({ children }: { children: ReactNode }) {
     _forceRole?: Role,
   ): Promise<boolean> {
     try {
-      const res = await fetch(`${API_URL}/auth/login`, {
+      const res = await apiFetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -834,7 +819,7 @@ export function AppStore({ children }: { children: ReactNode }) {
             : "Instituto de Computação",
       };
 
-      localStorage.setItem("diacom_token", data.access_token);
+      localStorage.removeItem("diacom_token");
       localStorage.setItem("diacom_user", JSON.stringify(authenticatedUser));
 
       setUser(authenticatedUser);
@@ -855,6 +840,7 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    apiFetch(`${API_URL}/auth/logout`, { method: "POST" }).catch(() => null);
     localStorage.removeItem("diacom_token");
     localStorage.removeItem("diacom_user");
     setUser(null);
@@ -884,10 +870,9 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function addSupplier(s: Supplier) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
-    const res = await fetch(`${API_URL}/fornecedor`, {
+    const res = await apiFetch(`${API_URL}/fornecedor`, {
       method: "POST",
       headers: getAuthHeaders(true),
       body: JSON.stringify(buildFornecedorPayload(s)),
@@ -903,10 +888,9 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function updateSupplier(s: Supplier) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
-    const res = await fetch(`${API_URL}/fornecedor/${s.id}`, {
+    const res = await apiFetch(`${API_URL}/fornecedor/${s.id}`, {
       method: "PATCH",
       headers: getAuthHeaders(true),
       body: JSON.stringify(buildFornecedorPayload(s)),
@@ -922,10 +906,9 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function removeSupplier(id: string) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
-    const res = await fetch(`${API_URL}/fornecedor/${id}`, {
+    const res = await apiFetch(`${API_URL}/fornecedor/${id}`, {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
@@ -966,8 +949,7 @@ export function AppStore({ children }: { children: ReactNode }) {
     }
 
     if (syncOrders && newStage !== "Entregue") {
-      const token = localStorage.getItem("diacom_token");
-      if (!token) return;
+      if (!user) return;
 
       const blockedStatuses = new Set([
         "Entregue",
@@ -989,7 +971,7 @@ export function AppStore({ children }: { children: ReactNode }) {
         const numericId = order.id.replace(/^#DC-/i, "");
         if (!/^\d+$/.test(numericId)) continue;
         try {
-          await fetch(`${API_URL}/pedido/${numericId}/status`, {
+          await apiFetch(`${API_URL}/pedido/${numericId}/status`, {
             method: "PATCH",
             headers: getAuthHeaders(true),
             body: JSON.stringify({ nomeStatus: newStage }),
@@ -1012,7 +994,6 @@ export function AppStore({ children }: { children: ReactNode }) {
     status: string,
     pinRetirada?: string,
   ) {
-    const token = localStorage.getItem("diacom_token");
     const numericId = orderId.replace(/^#DC-/i, "");
 
     // Atualização otimista local
@@ -1029,10 +1010,10 @@ export function AppStore({ children }: { children: ReactNode }) {
       }),
     );
 
-    if (!token || !/^\d+$/.test(numericId)) return;
+    if (!user || !/^\d+$/.test(numericId)) return;
 
     try {
-      const res = await fetch(`${API_URL}/pedido/${numericId}/status`, {
+      const res = await apiFetch(`${API_URL}/pedido/${numericId}/status`, {
         method: "PATCH",
         headers: getAuthHeaders(true),
         body: JSON.stringify({
@@ -1061,8 +1042,7 @@ export function AppStore({ children }: { children: ReactNode }) {
   /* ---------------------------------------------------------------- Coupons */
 
   async function addCoupon(c: Coupon) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
     const code = c.code.trim().toUpperCase();
     const tipoDesconto =
@@ -1094,7 +1074,7 @@ export function AppStore({ children }: { children: ReactNode }) {
       : `${API_URL}/promocao`;
     const method = existing?.id ? "PATCH" : "POST";
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: getAuthHeaders(true),
       body: JSON.stringify(payload),
@@ -1110,14 +1090,13 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function removeCoupon(code: string) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
     const normalized = code.trim().toUpperCase();
     const found = coupons.find((x) => x.code.toUpperCase() === normalized);
     if (!found?.id) return;
 
-    const res = await fetch(`${API_URL}/promocao/${found.id}`, {
+    const res = await apiFetch(`${API_URL}/promocao/${found.id}`, {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
@@ -1141,7 +1120,7 @@ export function AppStore({ children }: { children: ReactNode }) {
     }
 
     try {
-      const res = await fetch(`${API_URL}/promocao/cupons/validar`, {
+      const res = await apiFetch(`${API_URL}/promocao/cupons/validar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ codigo: clean, subtotal }),
@@ -1199,10 +1178,9 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function addPromotion(p: Promotion) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
-    const res = await fetch(`${API_URL}/promocao`, {
+    const res = await apiFetch(`${API_URL}/promocao`, {
       method: "POST",
       headers: getAuthHeaders(true),
       body: JSON.stringify(buildPromotionPayload(p)),
@@ -1218,10 +1196,9 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function updatePromotion(p: Promotion) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
-    const res = await fetch(`${API_URL}/promocao/${p.id}`, {
+    const res = await apiFetch(`${API_URL}/promocao/${p.id}`, {
       method: "PATCH",
       headers: getAuthHeaders(true),
       body: JSON.stringify(buildPromotionPayload(p)),
@@ -1237,10 +1214,9 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function removePromotion(id: string) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
-    const res = await fetch(`${API_URL}/promocao/${id}`, {
+    const res = await apiFetch(`${API_URL}/promocao/${id}`, {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
@@ -1257,8 +1233,7 @@ export function AppStore({ children }: { children: ReactNode }) {
   /* ------------------------------------------------ Repasses & Transactions */
 
   async function addRepasse(payload: RepassePayload) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
     const metodo =
       payload.method === "Cartão"
@@ -1284,7 +1259,7 @@ export function AppStore({ children }: { children: ReactNode }) {
       comprovanteUrl: payload.comprovanteUrl,
     };
 
-    const res = await fetch(`${API_URL}/pagamento/repasses`, {
+    const res = await apiFetch(`${API_URL}/pagamento/repasses`, {
       method: "POST",
       headers: getAuthHeaders(true),
       body: JSON.stringify(body),
@@ -1300,10 +1275,9 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function removeTxn(id: string) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
 
-    const res = await fetch(`${API_URL}/pagamento/${id}`, {
+    const res = await apiFetch(`${API_URL}/pagamento/${id}`, {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
@@ -1362,22 +1336,21 @@ export function AppStore({ children }: { children: ReactNode }) {
       );
     }
 
-    const token = localStorage.getItem("diacom_token");
-    if (!token) {
+    if (!user) {
       throw new Error("Você precisa estar logado para finalizar o pedido.");
     }
 
     const headers = getAuthHeaders(true);
 
     // 1. Garante que o carrinho no banco começa limpo
-    await fetch(`${API_URL}/carrinho`, {
+    await apiFetch(`${API_URL}/carrinho`, {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
 
     // 2. Insere cada item do carrinho no banco de dados
     for (const item of p.items) {
-      const resItem = await fetch(`${API_URL}/carrinho/itens`, {
+      const resItem = await apiFetch(`${API_URL}/carrinho/itens`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -1397,7 +1370,7 @@ export function AppStore({ children }: { children: ReactNode }) {
 
     // 3. Cria o pedido real no banco a partir do carrinho salvo
     const metodoPagamento = p.method === "Cartão" ? "cartao" : "pix";
-    const resPedido = await fetch(`${API_URL}/pedido`, {
+    const resPedido = await apiFetch(`${API_URL}/pedido`, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -1433,17 +1406,15 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function uploadComprovante(file: File): Promise<string> {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) {
+    if (!user) {
       throw new Error("Você precisa estar logado para enviar um comprovante.");
     }
 
     const formData = new FormData();
     formData.append("file", file);
 
-    const res = await fetch(`${API_URL}/pedido/upload-comprovante`, {
+    const res = await apiFetch(`${API_URL}/pedido/upload-comprovante`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
       body: formData,
     });
 
@@ -1461,11 +1432,10 @@ export function AppStore({ children }: { children: ReactNode }) {
   }
 
   async function confirmarPagamentoPedido(orderId: string) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
     const numericId = orderId.replace(/^#DC-/i, "");
 
-    const res = await fetch(
+    const res = await apiFetch(
       `${API_URL}/pedido/${numericId}/confirmar-pagamento`,
       {
         method: "PATCH",
@@ -1488,11 +1458,10 @@ export function AppStore({ children }: { children: ReactNode }) {
     motivo: string,
     chavePix?: string,
   ) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
     const numericId = orderId.replace(/^#DC-/i, "");
 
-    const res = await fetch(
+    const res = await apiFetch(
       `${API_URL}/pedido/${numericId}/solicitar-reembolso`,
       {
         method: "POST",
@@ -1519,11 +1488,10 @@ export function AppStore({ children }: { children: ReactNode }) {
     comprovanteReembolsoUrl: string,
     observacao?: string,
   ) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
+    if (!user) return;
     const numericId = orderId.replace(/^#DC-/i, "");
 
-    const res = await fetch(`${API_URL}/pedido/${numericId}/reembolsar`, {
+    const res = await apiFetch(`${API_URL}/pedido/${numericId}/reembolsar`, {
       method: "PATCH",
       headers: getAuthHeaders(true),
       body: JSON.stringify({

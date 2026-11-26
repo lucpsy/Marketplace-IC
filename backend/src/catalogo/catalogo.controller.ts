@@ -10,51 +10,33 @@ import {
   Req,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { JwtService } from '@nestjs/jwt';
 import { CatalogoService } from './catalogo.service';
 import { CreateProdutoDto } from './dto/create-produto.dto';
 import { UpdateProdutoDto } from './dto/update-produto.dto';
 import { CreateCategoriaDto, UpdateCategoriaDto } from './dto/create-categoria.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { Admin } from '../auth/decorators/role.decorator';
+import { OptionalAuthService } from '../common/security/optional-auth.service';
 
 @Controller('catalogo')
 export class CatalogoController {
   constructor(
     private readonly catalogoService: CatalogoService,
-    private readonly jwtService: JwtService,
+    private readonly optionalAuth: OptionalAuthService,
   ) {}
 
   /* -------------------------------------------------------- PRODUTOS */
 
   @Public()
   @Get('produtos')
-  findAllProdutos(
+  async findAllProdutos(
     @Req() req: Request,
     @Query('categoriaId') categoriaId?: string,
     @Query('fornecedorId') fornecedorId?: string,
     @Query('busca') busca?: string,
     @Query('apenasAtivos') apenasAtivos?: string,
   ) {
-    let isAdmin = (req as any)?.user?.role === 'admin';
-
-    if (!isAdmin) {
-      const authHeader = req.headers?.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
-        try {
-          const payload = this.jwtService.verify(token, {
-            secret: process.env.JWT_SECRET,
-          });
-          if (payload?.role === 'admin') {
-            isAdmin = true;
-          }
-        } catch {
-          // Token inválido/expirado, permanece não-admin
-        }
-      }
-    }
-
+    const isAdmin = await this.optionalAuth.isActiveAdmin(req);
     const filtrarApenasAtivos =
       isAdmin && apenasAtivos !== undefined ? apenasAtivos === 'true' : true;
 
@@ -63,13 +45,15 @@ export class CatalogoController {
       fornecedorId,
       busca,
       apenasAtivos: filtrarApenasAtivos,
+      incluirDadosInternos: isAdmin,
     });
   }
 
   @Public()
   @Get('produtos/:id')
-  findOneProduto(@Param('id') id: string) {
-    return this.catalogoService.findOneProduto(id);
+  async findOneProduto(@Req() req: Request, @Param('id') id: string) {
+    const isAdmin = await this.optionalAuth.isActiveAdmin(req);
+    return this.catalogoService.findOneProduto(id, !isAdmin);
   }
 
   @Admin()

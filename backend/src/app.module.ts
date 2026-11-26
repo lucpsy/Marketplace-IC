@@ -10,23 +10,26 @@ import { FornecedorModule } from './fornecedor/fornecedor.module';
 import { CatalogoModule } from './catalogo/catalogo.module';
 import { CarrinhoModule } from './carrinho/carrinho.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt.auth.guard';
 import { AuthModule } from './auth/auth.module';
+import { getDatabaseConfig } from './common/config/env.config';
+import { AuthCookieInterceptor } from './common/security/auth-cookie';
+import { RateLimitGuard } from './common/security/rate-limit.guard';
+import { SecurityModule } from './common/security/security.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: 'postgres',
-      port: 5432,
-      username: 'marketplace',
-      password: 'marketplace',
-      database: 'marketplace',
-      autoLoadEntities: true,
-      synchronize: false,
+    TypeOrmModule.forRootAsync({
+      useFactory: () => ({
+        type: 'postgres',
+        ...getDatabaseConfig(),
+        autoLoadEntities: true,
+        synchronize: false,
+      }),
     }),
 
+    SecurityModule,
     UsuarioModule,
     PromocaoModule,
     PedidoModule,
@@ -38,11 +41,19 @@ import { AuthModule } from './auth/auth.module';
     AuditoriaModule,
     AuthModule,
   ],
-  providers:[
-      {
+  providers: [
+    {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     },
-  ]
+    {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuthCookieInterceptor,
+    },
+  ],
 })
 export class AppModule {}

@@ -23,6 +23,7 @@ import { SolicitarReembolsoDto } from './dto/solicitar-reembolso.dto';
 import { EfetivarReembolsoDto } from './dto/efetivar-reembolso.dto';
 import { Admin } from '../auth/decorators/role.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { RateLimit } from '../common/security/rate-limit.guard';
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
 
@@ -68,6 +69,7 @@ export class PedidoController {
     return req.user.id ?? req.user.sub;
   }
 
+  @RateLimit(10, 10 * 60_000, 'upload-comprovante')
   @Post('upload-comprovante')
   @UseInterceptors(
     FileInterceptor('file', {

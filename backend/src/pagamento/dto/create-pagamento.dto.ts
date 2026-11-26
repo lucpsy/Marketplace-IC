@@ -4,10 +4,15 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  COMPROVANTE_URL_MESSAGE,
+  COMPROVANTE_URL_REGEX,
+} from '../../common/security/url-validation';
 
 export const TIPOS_LANCAMENTO = ['entrada', 'saida'] as const;
 export type TipoLancamento = (typeof TIPOS_LANCAMENTO)[number];
@@ -97,5 +102,7 @@ export class CreatePagamentoDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(300)
+  @Matches(COMPROVANTE_URL_REGEX, { message: COMPROVANTE_URL_MESSAGE })
   comprovanteUrl?: string;
 }

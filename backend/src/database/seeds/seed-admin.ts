@@ -1,7 +1,9 @@
 import 'dotenv/config';
+import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
 import AppDataSource from '../data-source';
 import { Usuario } from '../../usuario/entities/usuario.entity';
+import { isProduction } from '../../common/config/env.config';
 import * as bcrypt from 'bcrypt';
 
 /**
@@ -20,9 +22,9 @@ export async function seedAdmin(repo?: Repository<Usuario>) {
     usuarioRepo = AppDataSource.getRepository(Usuario);
   }
 
-  const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@diacom.ic.ufal.br';
-  const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin123';
-  const adminNome = process.env.ADMIN_NOME ?? 'Coordenação DIACOM';
+  const adminEmail = process.env.ADMIN_EMAIL?.trim() || 'admin@diacom.ic.ufal.br';
+  const envPassword = process.env.ADMIN_PASSWORD?.trim();
+  const adminNome = process.env.ADMIN_NOME?.trim() || 'Coordenação DIACOM';
 
   const existente = await usuarioRepo.findOne({
     where: [{ email: adminEmail }, { cargo: 'admin' }],
@@ -31,7 +33,27 @@ export async function seedAdmin(repo?: Repository<Usuario>) {
   if (existente) {
     console.log(`[Seed] Administrador já existente (${existente.email}). Nenhuma ação necessária.`);
   } else {
-    const senhaHash = await bcrypt.hash(adminPassword, 10);
+    let senhaFinal = envPassword;
+
+    if (isProduction()) {
+      if (!senhaFinal || senhaFinal.length < 12) {
+        const msg =
+          '[Seed] Nenhum administrador encontrado. Em produção, defina ADMIN_EMAIL e ADMIN_PASSWORD (mínimo 12 caracteres) para criar o administrador inicial.';
+        if (initializedHere) {
+          await AppDataSource.destroy();
+          throw new Error(msg);
+        }
+        console.warn(msg);
+        return;
+      }
+    } else if (!senhaFinal) {
+      senhaFinal = randomBytes(12).toString('base64url');
+      console.warn(
+        `[Seed] ADMIN_PASSWORD não definido em desenvolvimento. Senha temporária gerada para ${adminEmail}: ${senhaFinal}`,
+      );
+    }
+
+    const senhaHash = await bcrypt.hash(senhaFinal, 10);
     const novoAdmin = usuarioRepo.create({
       nome: adminNome,
       email: adminEmail,

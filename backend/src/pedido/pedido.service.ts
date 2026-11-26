@@ -338,7 +338,7 @@ export class PedidoService implements OnModuleInit {
         quantidade: item.quantidade,
       })),
       codigoCupom: dto.codigoCupom,
-      frete: dto.frete ?? 0,
+      frete: 0,
     });
 
     const subtotal = calculo.subtotalBruto;
@@ -397,7 +397,7 @@ export class PedidoService implements OnModuleInit {
           const updateResult = await manager
             .createQueryBuilder()
             .update(Produto)
-            .set({ estoque: () => `estoque - ${qtd}` })
+            .set({ estoque: () => 'estoque - :qtd' })
             .where('id_produto = :idProduto', {
               idProduto: item.produto.idProduto,
             })

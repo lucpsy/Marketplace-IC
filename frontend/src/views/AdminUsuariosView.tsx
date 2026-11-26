@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { API_URL } from "@/lib/data";
+import { API_URL, apiFetch } from "@/lib/data";
 
 type UsuarioAPI = {
   idUsuario: string;
@@ -34,16 +34,20 @@ export function AdminUsuariosView() {
 
   useEffect(() => {
     const savedUser = localStorage.getItem("diacom_user");
-    const token = localStorage.getItem("diacom_token");
 
-    if (!savedUser || !token) {
+    if (!savedUser) {
       router.push("/login?redirect=/admin/usuarios");
       return;
     }
 
-    const parsed = JSON.parse(savedUser);
-    if (parsed.role !== "admin") {
-      router.push("/");
+    try {
+      const parsed = JSON.parse(savedUser);
+      if (parsed.role !== "admin") {
+        router.push("/");
+        return;
+      }
+    } catch {
+      router.push("/login?redirect=/admin/usuarios");
       return;
     }
 
@@ -51,11 +55,12 @@ export function AdminUsuariosView() {
       try {
         setIsLoading(true);
         setError(null);
-        const res = await fetch(`${API_URL}/usuario`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const res = await apiFetch(`${API_URL}/usuario`);
+
+        if (res.status === 401 || res.status === 403) {
+          router.push("/login?redirect=/admin/usuarios");
+          return;
+        }
 
         if (!res.ok) {
           throw new Error("Não foi possível carregar a lista de usuários.");
@@ -74,21 +79,17 @@ export function AdminUsuariosView() {
   }, [router]);
 
   async function handleAlterarCargo(alvo: UsuarioAPI) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
-
     const isAdminAtual = alvo.cargo?.toLowerCase().includes("admin");
     const novoCargo = isAdminAtual ? "cliente" : "admin";
 
     try {
       setAtualizandoId(alvo.idUsuario);
-      const res = await fetch(
+      const res = await apiFetch(
         `${API_URL}/usuario/${alvo.idUsuario}`,
         {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ cargo: novoCargo }),
         },
@@ -114,9 +115,6 @@ export function AdminUsuariosView() {
   }
 
   async function handleAlternarStatus(alvo: UsuarioAPI) {
-    const token = localStorage.getItem("diacom_token");
-    if (!token) return;
-
     const isAtivoAtual = alvo.status?.toLowerCase() === "ativo";
     const novoStatus = isAtivoAtual ? "inativo" : "ativo";
     const confirmMsg = isAtivoAtual
@@ -127,11 +125,10 @@ export function AdminUsuariosView() {
 
     try {
       setAtualizandoId(alvo.idUsuario);
-      const res = await fetch(`${API_URL}/usuario/${alvo.idUsuario}`, {
+      const res = await apiFetch(`${API_URL}/usuario/${alvo.idUsuario}`, {
         method: isAtivoAtual ? "DELETE" : "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         ...(isAtivoAtual ? {} : { body: JSON.stringify({ status: "ativo" }) }),
       });

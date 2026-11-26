@@ -5,11 +5,16 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { METODOS_PAGAMENTO, MetodoPagamento } from './create-pagamento.dto';
+import {
+  COMPROVANTE_URL_MESSAGE,
+  COMPROVANTE_URL_REGEX,
+} from '../../common/security/url-validation';
 
 export const STATUS_REPASSE = ['concluido', 'processando'] as const;
 export type StatusRepasse = (typeof STATUS_REPASSE)[number];
@@ -53,5 +58,7 @@ export class CreateRepasseDto {
 
   @IsString()
   @IsNotEmpty({ message: 'É obrigatório anexar o comprovante do repasse' })
+  @MaxLength(300)
+  @Matches(COMPROVANTE_URL_REGEX, { message: COMPROVANTE_URL_MESSAGE })
   comprovanteUrl: string;
 }

@@ -92,13 +92,39 @@ export const API_URL =
 
 export const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
 
+export function apiFetch(
+  input: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  return fetch(input, {
+    credentials: "include",
+    ...init,
+  });
+}
+
+export function isSafeHref(url?: string | null): boolean {
+  if (!url) return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  if (/^https?:\/\//i.test(trimmed)) return true;
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return true;
+  if (/^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
 export function resolveAssetUrl(url?: string | null): string | undefined {
   if (!url) return undefined;
-  const normalized = url.replace(
-    /\/api\/uploads\/comprovantes\//i,
-    "/api/pedido/comprovantes/",
-  );
-  if (/^https?:\/\//i.test(normalized) || normalized.startsWith("data:")) {
+  const normalized = url
+    .trim()
+    .replace(/\/api\/uploads\/comprovantes\//i, "/api/pedido/comprovantes/");
+
+  if (!isSafeHref(normalized)) {
+    return undefined;
+  }
+
+  if (/^https?:\/\//i.test(normalized) || normalized.startsWith("data:image/")) {
     return normalized;
   }
   return `${API_ORIGIN}${normalized.startsWith("/") ? "" : "/"}${normalized}`;
@@ -107,11 +133,10 @@ export function resolveAssetUrl(url?: string | null): string | undefined {
 export async function fetchProtectedAssetBlobUrl(
   url: string,
 ): Promise<{ blobUrl: string; isPdf: boolean }> {
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("diacom_token") : null;
-  const res = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  if (!isSafeHref(url)) {
+    throw new Error("URL de comprovante inválida.");
+  }
+  const res = await apiFetch(url);
   if (!res.ok) {
     throw new Error("Não foi possível carregar o comprovante.");
   }
