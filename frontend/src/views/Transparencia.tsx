@@ -83,8 +83,8 @@ export function Transparencia() {
     transparenciaResumo !== null
       ? -Math.abs(transparenciaResumo.saidas)
       : txns
-          .filter((t) => t.amount < 0 && t.status === "Concluído")
-          .reduce((s, t) => s + t.amount, 0)
+        .filter((t) => t.amount < 0 && t.status === "Concluído")
+        .reduce((s, t) => s + t.amount, 0)
   const saldo = transparenciaResumo?.saldo ?? entradas + saidas
   const pedidos =
     transparenciaResumo?.totalPedidos ??
@@ -144,9 +144,8 @@ export function Transparencia() {
   function handleRemove(t: Txn) {
     const isRepasse = t.category === "Repasse"
     const confirmMsg = isRepasse
-      ? `Deseja remover o repasse "${t.description}" (${brl(Math.abs(t.amount))})${
-          t.validator ? ` validado por ${t.validator}` : ""
-        }?`
+      ? `Deseja remover o repasse "${t.description}" (${brl(Math.abs(t.amount))})${t.validator ? ` validado por ${t.validator}` : ""
+      }?`
       : `Deseja remover o lançamento "${t.description}" (${brl(Math.abs(t.amount))})?`
 
     if (window.confirm(confirmMsg)) {
@@ -162,10 +161,6 @@ export function Transparencia() {
           <h1 className="mt-3 font-display text-4xl font-extrabold tracking-tight">
             Transparência
           </h1>
-          <p className="max-w-md text-sm text-muted">
-            Todo movimento financeiro dos pedidos e repasses da loja, com auditoria e
-            validador institucional.
-          </p>
         </div>
 
         {role === "admin" && (
@@ -205,11 +200,10 @@ export function Transparencia() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
-                filter === f
-                  ? "border-cyan bg-cyan/10 text-cyan font-semibold"
-                  : "border-line text-muted hover:text-fg"
-              }`}
+              className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${filter === f
+                ? "border-cyan bg-cyan/10 text-cyan font-semibold"
+                : "border-line text-muted hover:text-fg"
+                }`}
             >
               {f}
               {(f === "Repasse" || f === "Reembolso") && (
@@ -636,9 +630,8 @@ export function Transparencia() {
                       <StatusPill status={t.status} />
                     </td>
                     <td
-                      className={`whitespace-nowrap px-4 py-3 text-right font-mono font-medium ${
-                        t.amount >= 0 ? "text-cyan" : "text-fg"
-                      }`}
+                      className={`whitespace-nowrap px-4 py-3 text-right font-mono font-medium ${t.amount >= 0 ? "text-cyan" : "text-fg"
+                        }`}
                     >
                       {t.amount >= 0 ? "+" : "−"}
                       {brl(Math.abs(t.amount))}

@@ -15,7 +15,6 @@ export function CartDrawer() {
     checkout,
     uploadComprovante,
     promotions,
-    coupons,
     validateCoupon,
     cartOpen,
     setCartOpen,
@@ -267,17 +266,6 @@ export function CartDrawer() {
                     {coupon.code} aplicado — {coupon.label}
                   </p>
                 )}
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {coupons.map((c) => (
-                    <button
-                      key={c.code}
-                      onClick={() => setCode(c.code)}
-                      className="rounded-md border border-dashed border-line px-2 py-0.5 font-mono text-[10px] text-muted hover:border-cyan hover:text-cyan"
-                    >
-                      {c.code}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
 

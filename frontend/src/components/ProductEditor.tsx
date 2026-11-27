@@ -64,7 +64,7 @@ export function AdminProductCard({
   }
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-line bg-panel">
+    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-panel">
       <div className="relative aspect-video overflow-hidden bg-panel-2">
         {product.image ? (
           <img
@@ -85,7 +85,7 @@ export function AdminProductCard({
       </div>
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-display text-base font-bold leading-tight">
+          <h3 className="line-clamp-2 font-display text-base font-bold leading-tight">
             {product.name}
           </h3>
           <span className="shrink-0 font-mono text-sm text-cyan">
@@ -93,9 +93,12 @@ export function AdminProductCard({
           </span>
         </div>
         <p className="mt-1 label text-muted">
-          {product.category} · {product.stock} un
+          {Array.isArray(product.category)
+            ? product.category.join(", ")
+            : product.category}{" "}
+          · {product.stock} un
         </p>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-auto flex gap-2 pt-4">
           <button
             onClick={() => {
               setDraft(product);
@@ -172,9 +175,22 @@ function ProductForm({
   submitLabel: string;
   isNew?: boolean;
 }) {
-  const { suppliers } = useStore();
+  const { suppliers, categories: availableCategories } = useStore();
   const set = (patch: Partial<Product>) => onChange({ ...value, ...patch });
   const valid = value.name.trim() && value.price > 0 && value.stock >= 0;
+  const selectedCategories = (value.category ?? []).filter(Boolean);
+
+  function toggleCategory(catName: string) {
+    const exists = selectedCategories.some(
+      (c) => c.toLowerCase() === catName.toLowerCase(),
+    );
+    const next = exists
+      ? selectedCategories.filter(
+          (c) => c.toLowerCase() !== catName.toLowerCase(),
+        )
+      : [...selectedCategories, catName];
+    set({ category: next });
+  }
   return (
     <div className="space-y-2.5">
       <p className="label text-cyan">
@@ -200,53 +216,37 @@ function ProductForm({
         />
       </div>
       <div className="grid grid-cols-2 gap-2.5">
-        <label className="block">
+        <div className="block">
           <span className="label text-muted">Categorias</span>
 
-          <div className="mt-1 space-y-2">
-            {(value.category ?? []).map((category, index) => (
-              <div key={index} className="flex gap-2">
-                <input
-                  value={category}
-                  onChange={(e) => {
-                    const categories = [...(value.category ?? [])];
-                    categories[index] = e.target.value;
-                    set({ category: categories });
-                  }}
-                  placeholder={`Categoria ${index + 1}`}
-                  className="w-full min-w-0 rounded-lg border border-line bg-ink px-3 py-2 font-mono text-sm outline-none focus:border-cyan"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    set({
-                      category: (value.category ?? []).filter(
-                        (_, i) => i !== index,
-                      ),
-                    });
-                  }}
-                  className="rounded-lg border border-line px-3 text-sm text-muted transition-colors hover:border-red-400 hover:text-red-400"
-                  aria-label={`Remover categoria ${index + 1}`}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => {
-                set({
-                  category: [...(value.category ?? []), ""],
-                });
-              }}
-              className="w-full rounded-lg border border-dashed border-line px-3 py-2 text-sm text-cyan transition-colors hover:border-cyan"
-            >
-              + Adicionar categoria
-            </button>
+          <div className="mt-1 flex flex-wrap gap-1.5 rounded-lg border border-line bg-ink p-2">
+            {availableCategories.length === 0 ? (
+              <span className="text-xs text-muted">
+                Nenhuma categoria cadastrada.
+              </span>
+            ) : (
+              availableCategories.map((catName) => {
+                const isSelected = selectedCategories.some(
+                  (c) => c.toLowerCase() === catName.toLowerCase(),
+                );
+                return (
+                  <button
+                    key={catName}
+                    type="button"
+                    onClick={() => toggleCategory(catName)}
+                    className={`rounded-md border px-2.5 py-1 font-mono text-xs transition-colors ${
+                      isSelected
+                        ? "border-cyan bg-cyan/15 font-semibold text-cyan"
+                        : "border-line text-muted hover:border-cyan/60 hover:text-fg"
+                    }`}
+                  >
+                    {catName}
+                  </button>
+                );
+              })
+            )}
           </div>
-        </label>
+        </div>
         <label className="block">
           <span className="label text-muted">Fornecedor</span>
           <select
@@ -296,7 +296,7 @@ function ProductForm({
   );
 }
 
-// Editor de várias imagens. A primeira da lista é a capa. Limite MAX_PRODUCT_IMAGES.
+// Editor de várias imagens por upload. A primeira da lista é a capa. Limite MAX_PRODUCT_IMAGES.
 function ImagesField({
   value,
   onChange,
@@ -304,35 +304,53 @@ function ImagesField({
   value: Product;
   onChange: (p: Product) => void;
 }) {
+  const { uploadProdutoImagem } = useStore();
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   // Lista unificada: capa + galeria.
   const list = [value.image, ...(value.images ?? [])].filter(Boolean);
-  const canAdd = list.length < MAX_PRODUCT_IMAGES;
+  const remaining = Math.max(0, MAX_PRODUCT_IMAGES - list.length);
+  const canAdd = remaining > 0;
 
   function commit(next: string[]) {
-    const clean = next.filter(Boolean);
+    const clean = next.filter(Boolean).slice(0, MAX_PRODUCT_IMAGES);
     onChange({ ...value, image: clean[0] ?? "", images: clean.slice(1) });
   }
 
-  // Trabalha sobre um espelho editável que preserva campos em branco enquanto digita.
-  const draft = list.length ? list : [""];
-
-  function update(i: number, v: string) {
-    const next = [...draft];
-    next[i] = v;
-    commit(next);
-  }
   function remove(i: number) {
-    commit(draft.filter((_, idx) => idx !== i));
+    commit(list.filter((_, idx) => idx !== i));
   }
-  function add() {
-    commit([...draft, ""]);
-  }
+
   function move(i: number, dir: -1 | 1) {
     const j = i + dir;
-    if (j < 0 || j >= draft.length) return;
-    const next = [...draft];
+    if (j < 0 || j >= list.length) return;
+    const next = [...list];
     [next[i], next[j]] = [next[j], next[i]];
     commit(next);
+  }
+
+  async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (!files.length || !canAdd) return;
+
+    const selected = files.slice(0, remaining);
+    setUploading(true);
+    setUploadError(null);
+
+    try {
+      const uploadedUrls: string[] = [];
+      for (const file of selected) {
+        const url = await uploadProdutoImagem(file);
+        uploadedUrls.push(url);
+      }
+      commit([...list, ...uploadedUrls]);
+    } catch (err: any) {
+      setUploadError(err?.message || "Erro ao enviar imagem.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -341,54 +359,75 @@ function ImagesField({
         <span className="label text-muted">
           Imagens ({list.length}/{MAX_PRODUCT_IMAGES})
         </span>
-        <span className="text-[11px] text-muted">1ª é a capa</span>
+        <span className="text-[11px] text-muted">1ª é a capa · PNG/JPG/WEBP até 5 MB</span>
       </div>
-      <div className="mt-1.5 space-y-2">
-        {draft.map((url, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-line bg-ink">
-              {url ? (
-                <img src={url} alt="" className="size-full object-cover" />
-              ) : (
-                <span className="text-[10px] text-muted">{i + 1}</span>
+
+      {list.length > 0 && (
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {list.map((url, i) => (
+            <div
+              key={`${url}-${i}`}
+              className="group relative aspect-square overflow-hidden rounded-lg border border-line bg-ink"
+            >
+              <img src={url} alt="" className="size-full object-cover" />
+              {i === 0 && (
+                <span className="absolute left-1.5 top-1.5 rounded bg-cyan px-1.5 py-0.5 font-mono text-[10px] font-bold text-ink">
+                  Capa
+                </span>
               )}
+              <div className="absolute inset-x-1 bottom-1 flex justify-end gap-1">
+                {i > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => move(i, -1)}
+                    className="grid size-6 place-items-center rounded bg-ink/85 text-xs text-fg backdrop-blur transition-colors hover:text-cyan"
+                    title="Mover para frente"
+                    aria-label="Mover imagem para frente"
+                  >
+                    ↑
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  className="grid size-6 place-items-center rounded bg-ink/85 text-xs text-red-300 backdrop-blur transition-colors hover:bg-red-500/30"
+                  title="Remover imagem"
+                  aria-label="Remover imagem"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
-            <input
-              value={url}
-              onChange={(e) => update(i, e.target.value)}
-              placeholder="https://…"
-              className="min-w-0 flex-1 rounded-lg border border-line bg-ink px-3 py-2 font-mono text-xs outline-none placeholder:text-muted/60 focus:border-cyan"
-            />
-            <div className="flex shrink-0 gap-1">
-              <button
-                type="button"
-                onClick={() => move(i, -1)}
-                disabled={i === 0}
-                className="grid size-7 place-items-center rounded-md border border-line text-muted transition-colors hover:border-cyan hover:text-cyan disabled:opacity-30"
-                aria-label="Mover para cima"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                onClick={() => remove(i)}
-                className="grid size-7 place-items-center rounded-md border border-red-400/40 text-red-300 transition-colors hover:bg-red-400/10"
-                aria-label="Remover imagem"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {uploadError && (
+        <p className="mt-1.5 text-xs text-red-400">{uploadError}</p>
+      )}
+
       {canAdd && (
-        <button
-          type="button"
-          onClick={add}
-          className="mt-2 w-full rounded-lg border border-dashed border-line py-1.5 text-xs text-muted transition-colors hover:border-cyan hover:text-cyan"
+        <label
+          className={`mt-2 flex w-full cursor-pointer items-center justify-center rounded-lg border border-dashed border-line py-2.5 text-xs transition-colors ${
+            uploading
+              ? "cursor-wait opacity-60"
+              : "text-muted hover:border-cyan hover:text-cyan"
+          }`}
         >
-          + Adicionar imagem
-        </button>
+          <span>
+            {uploading
+              ? "Enviando imagem..."
+              : `+ Enviar imagem (${remaining} restante${remaining > 1 ? "s" : ""})`}
+          </span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            multiple={remaining > 1}
+            disabled={uploading}
+            onChange={handleFiles}
+            className="hidden"
+          />
+        </label>
       )}
     </div>
   );

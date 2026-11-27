@@ -714,22 +714,6 @@ export function AdminControle() {
                   {visibleOrders.map((o) => {
                     const isOpen = open === o.id;
                     const statusAtual = getOrderStatus(o);
-                    const showChecklist = PACKING_STATUSES.has(statusAtual);
-
-                    const flatItems = o.fulfillments.flatMap((f, fi) =>
-                      f.items.map((it, ii) => ({
-                        key: `${fi}-${ii}-${it.name}`,
-                        name: it.name,
-                        qty: it.qty,
-                        supplier: supplierName(f.supplierId, suppliers),
-                      })),
-                    );
-                    const orderChecks = checkedItems[o.id] ?? {};
-                    const doneCount = flatItems.filter(
-                      (item) => orderChecks[item.key],
-                    ).length;
-                    const allChecked =
-                      flatItems.length > 0 && doneCount === flatItems.length;
 
                     return (
                       <Fragment key={o.id}>
@@ -868,160 +852,29 @@ export function AdminControle() {
                                   </p>
                                 )}
 
-                                {/* Check-list de montagem aparece ao clicar no pedido */}
-                                {showChecklist ? (
-                                  <div className="rounded-xl border border-line bg-panel/60 p-4">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                      <div>
-                                        <p className="label text-cyan">
-                                          Check-list de montagem física
-                                        </p>
-                                        <p className="mt-0.5 text-xs text-muted">
-                                          Itens separados:{" "}
-                                          <strong className="font-mono text-fg">
-                                            {doneCount}/{flatItems.length}
-                                          </strong>
-                                        </p>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          markAllPackingItems(o, !allChecked)
-                                        }
-                                        className="text-xs text-cyan hover:underline"
-                                      >
-                                        {allChecked
-                                          ? "Desmarcar todos"
-                                          : "Marcar todos"}
-                                      </button>
+                                {o.fulfillments.map((f, i) => (
+                                  <div key={i}>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium text-fg">
+                                        {supplierName(f.supplierId, suppliers)}
+                                      </span>
+                                      <StatusPill status={f.status} />
                                     </div>
-
-                                    <div className="mt-3 space-y-1.5">
-                                      {flatItems.map((item) => {
-                                        const checked = Boolean(
-                                          orderChecks[item.key],
-                                        );
-                                        return (
-                                          <label
-                                            key={item.key}
-                                            className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                                              checked
-                                                ? "border-cyan/30 bg-cyan/10 text-muted line-through"
-                                                : "border-line/70 bg-ink/60 text-fg hover:border-cyan/40"
-                                            }`}
-                                          >
-                                            <input
-                                              type="checkbox"
-                                              checked={checked}
-                                              onChange={() =>
-                                                togglePackingItem(
-                                                  o.id,
-                                                  item.key,
-                                                )
-                                              }
-                                              className="size-4 accent-cyan"
-                                            />
-                                            <span className="font-mono text-xs font-bold text-cyan no-underline">
-                                              {item.qty}×
-                                            </span>
-                                            <span className="flex-1">
-                                              {item.name}
-                                            </span>
-                                            <span className="text-xs text-muted no-underline">
-                                              {item.supplier}
-                                            </span>
-                                          </label>
-                                        );
-                                      })}
-                                    </div>
-
-                                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
-                                      {statusAtual ===
-                                      "Pronto para retirada" ? (
-                                        <>
-                                          <span className="text-xs font-semibold text-cyan">
-                                            📦 Empacotado e pronto para retirada
+                                    <ul className="mt-1.5 space-y-0.5 pl-1">
+                                      {f.items.map((it, j) => (
+                                        <li
+                                          key={j}
+                                          className="flex justify-between text-sm text-muted"
+                                        >
+                                          <span>{it.name}</span>
+                                          <span className="font-mono">
+                                            {it.qty}×
                                           </span>
-                                          <span className="text-[11px] text-muted">
-                                            Valide pelo código/PIN acima para
-                                            confirmar a entrega
-                                          </span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          {statusAtual === "Confirmado" && (
-                                            <button
-                                              type="button"
-                                              disabled={busyId === o.id}
-                                              onClick={() =>
-                                                handleChangeOrderStatus(
-                                                  o,
-                                                  "Em separação",
-                                                )
-                                              }
-                                              className="rounded-lg border border-amber-400/40 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-400/10 disabled:opacity-40"
-                                            >
-                                              Iniciar separação
-                                            </button>
-                                          )}
-                                          <button
-                                            type="button"
-                                            disabled={busyId === o.id}
-                                            onClick={() => {
-                                              if (!allChecked) {
-                                                const ok = window.confirm(
-                                                  `Nem todos os itens do pedido ${o.id} foram marcados (${doneCount}/${flatItems.length}). Marcar como empacotado e pronto para retirada mesmo assim?`,
-                                                );
-                                                if (!ok) return;
-                                                markAllPackingItems(o, true);
-                                              }
-                                              handleChangeOrderStatus(
-                                                o,
-                                                "Pronto para retirada",
-                                              );
-                                            }}
-                                            className={`ml-auto rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
-                                              allChecked
-                                                ? "bg-cyan text-ink hover:bg-[#5cebf5]"
-                                                : "border border-cyan/40 bg-cyan/10 text-cyan hover:bg-cyan/20"
-                                            }`}
-                                          >
-                                            {busyId === o.id
-                                              ? "Salvando..."
-                                              : "📦 Empacotado — Pronto p/ retirada"}
-                                          </button>
-                                        </>
-                                      )}
-                                    </div>
+                                        </li>
+                                      ))}
+                                    </ul>
                                   </div>
-                                ) : (
-                                  o.fulfillments.map((f, i) => (
-                                    <div key={i}>
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium text-fg">
-                                          {supplierName(
-                                            f.supplierId,
-                                            suppliers,
-                                          )}
-                                        </span>
-                                        <StatusPill status={f.status} />
-                                      </div>
-                                      <ul className="mt-1.5 space-y-0.5 pl-1">
-                                        {f.items.map((it, j) => (
-                                          <li
-                                            key={j}
-                                            className="flex justify-between text-sm text-muted"
-                                          >
-                                            <span>{it.name}</span>
-                                            <span className="font-mono">
-                                              {it.qty}×
-                                            </span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  ))
-                                )}
+                                ))}
                               </div>
                             </td>
                           </tr>

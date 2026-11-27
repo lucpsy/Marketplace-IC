@@ -50,7 +50,10 @@ async function bootstrap() {
       );
     }
 
-    if (req.path.includes("/pedido/comprovantes/")) {
+    if (
+      req.path.includes("/pedido/comprovantes/") ||
+      req.path.includes("/catalogo/imagens/")
+    ) {
       res.setHeader(
         "Content-Security-Policy",
         "default-src 'none'; img-src 'self' data:; object-src 'self'; style-src 'unsafe-inline'; script-src 'none'; frame-ancestors 'none'",

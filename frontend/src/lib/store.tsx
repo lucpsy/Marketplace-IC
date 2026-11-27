@@ -76,10 +76,12 @@ type Store = {
   setOfferDeadline: (deadline: string) => void;
 
   products: Product[];
+  categories: string[];
   addProduct: (p: Product) => Promise<void>;
   updateProduct: (p: Product) => Promise<void>;
   removeProduct: (id: string) => Promise<void>;
   createCategory: (name: string) => Promise<boolean>;
+  uploadProdutoImagem: (file: File) => Promise<string>;
 
   suppliers: Supplier[];
   addSupplier: (s: Supplier) => Promise<void>;
@@ -536,8 +538,8 @@ export function AppStore({ children }: { children: ReactNode }) {
               const imgs = Array.isArray(raw.imagens)
                 ? raw.imagens
                     .sort((a: any, b: any) => (a.ordem ?? 0) - (b.ordem ?? 0))
-                    .map((img: any) => img.urlImagem || img.url)
-                    .filter(Boolean)
+                    .map((img: any) => resolveAssetUrl(img.urlImagem || img.url))
+                    .filter((u: string | undefined): u is string => Boolean(u))
                 : [];
               return {
                 id: String(raw.idProduto),
@@ -1431,6 +1433,32 @@ export function AppStore({ children }: { children: ReactNode }) {
     return data.url;
   }
 
+  async function uploadProdutoImagem(file: File): Promise<string> {
+    if (!user) {
+      throw new Error("Você precisa estar logado para enviar imagens.");
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await apiFetch(`${API_URL}/catalogo/upload-imagem`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(
+        (Array.isArray(errData?.message)
+          ? errData.message[0]
+          : errData?.message) || "Erro ao enviar imagem do produto.",
+      );
+    }
+
+    const data = await res.json();
+    return resolveAssetUrl(data.url) || data.url;
+  }
+
   async function confirmarPagamentoPedido(orderId: string) {
     if (!user) return;
     const numericId = orderId.replace(/^#DC-/i, "");
@@ -1523,10 +1551,12 @@ export function AppStore({ children }: { children: ReactNode }) {
     offerDeadline,
     setOfferDeadline,
     products,
+    categories: backendCategories.map((c) => c.nome),
     addProduct,
     updateProduct,
     removeProduct,
     createCategory,
+    uploadProdutoImagem,
     suppliers,
     addSupplier,
     updateSupplier,

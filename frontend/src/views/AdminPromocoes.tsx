@@ -8,6 +8,16 @@ import { PromoBanner } from "@/components/PromoBanner"
 
 const ACCENTS = ["#22e0ee", "#a78bfa", "#f472b6", "#f59e0b", "#34d399"]
 
+function toLocalDateInputValue(iso?: string): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
 function blankPromo(): Promotion {
   return {
     id: "",
@@ -190,13 +200,20 @@ export function AdminPromocoes() {
                       <span className="label text-muted">Encerra em</span>
                       <input
                         type="date"
-                        value={draftPromo.endsAt ? draftPromo.endsAt.slice(0, 10) : ""}
+                        value={toLocalDateInputValue(draftPromo.endsAt)}
+                        onClick={(e) => {
+                          try {
+                            e.currentTarget.showPicker?.()
+                          } catch {
+                            // fallback para navegadores sem suporte a showPicker
+                          }
+                        }}
                         onChange={(e) =>
                           setPromoPatch({
                             endsAt: e.target.value ? `${e.target.value}T23:59:59` : undefined,
                           })
                         }
-                        className="mt-1 w-full rounded-lg border border-line bg-ink px-3 py-2 font-mono text-sm outline-none focus:border-cyan"
+                        className="mt-1 w-full cursor-pointer rounded-lg border border-line bg-ink px-3 py-2 font-mono text-sm text-fg outline-none [color-scheme:dark] focus:border-cyan"
                       />
                     </label>
                   </div>

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -8,8 +9,14 @@ import {
   Delete,
   Query,
   Req,
+  Res,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { randomUUID } from 'crypto';
+import { Request, Response } from 'express';
 import { CatalogoService } from './catalogo.service';
 import { CreateProdutoDto } from './dto/create-produto.dto';
 import { UpdateProdutoDto } from './dto/update-produto.dto';
@@ -17,6 +24,39 @@ import { CreateCategoriaDto, UpdateCategoriaDto } from './dto/create-categoria.d
 import { Public } from '../auth/decorators/public.decorator';
 import { Admin } from '../auth/decorators/role.decorator';
 import { OptionalAuthService } from '../common/security/optional-auth.service';
+import { RateLimit } from '../common/security/rate-limit.guard';
+
+const MAX_PRODUCT_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+const IMAGE_MIME_TO_EXT: Record<string, string> = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/webp': '.webp',
+};
+
+function validarAssinaturaImagem(buffer: Buffer, ext: string): boolean {
+  if (!buffer || buffer.length < 4) return false;
+  if (ext === '.png') {
+    return (
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47
+    );
+  }
+  if (ext === '.jpg') {
+    return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  }
+  if (ext === '.webp') {
+    return (
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+    );
+  }
+  return false;
+}
 
 @Controller('catalogo')
 export class CatalogoController {
@@ -24,6 +64,90 @@ export class CatalogoController {
     private readonly catalogoService: CatalogoService,
     private readonly optionalAuth: OptionalAuthService,
   ) {}
+
+  /* -------------------------------------------------------- IMAGENS */
+
+  @Admin()
+  @RateLimit(30, 10 * 60_000, 'upload-imagem-produto')
+  @Post('upload-imagem')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_PRODUCT_IMAGE_BYTES },
+    }),
+  )
+  async uploadImagemProduto(
+    @Req() req: any,
+    @UploadedFile()
+    file?: {
+      originalname: string;
+      mimetype: string;
+      buffer: Buffer;
+      size: number;
+    },
+  ) {
+    if (!file) {
+      throw new BadRequestException('Nenhuma imagem enviada.');
+    }
+
+    if (
+      file.size > MAX_PRODUCT_IMAGE_BYTES ||
+      file.buffer.length > MAX_PRODUCT_IMAGE_BYTES
+    ) {
+      throw new BadRequestException(
+        'A imagem excede o tamanho máximo permitido de 5 MB.',
+      );
+    }
+
+    const ext = IMAGE_MIME_TO_EXT[file.mimetype];
+    if (!ext) {
+      throw new BadRequestException(
+        'Formato inválido. Envie PNG, JPG ou WEBP.',
+      );
+    }
+
+    if (!validarAssinaturaImagem(file.buffer, ext)) {
+      throw new BadRequestException(
+        'Conteúdo do arquivo não corresponde a uma imagem válida (PNG, JPG ou WEBP).',
+      );
+    }
+
+    const filename = `prod-${Date.now()}-${randomUUID()}${ext}`;
+    await this.catalogoService.salvarImagemProduto({
+      filename,
+      nomeOriginal: file.originalname || null,
+      mimetype: file.mimetype === 'image/jpg' ? 'image/jpeg' : file.mimetype,
+      tamanho: file.buffer.length,
+      dados: file.buffer,
+      usuarioId: req.user?.id ?? req.user?.sub,
+    });
+
+    return {
+      url: `/api/catalogo/imagens/${filename}`,
+      filename,
+      mimetype: file.mimetype,
+      size: file.buffer.length,
+    };
+  }
+
+  @Public()
+  @Get('imagens/:filename')
+  async baixarImagemProduto(
+    @Param('filename') filename: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { buffer, mimeType } =
+      await this.catalogoService.obterImagemProdutoPublica(filename);
+
+    res.set({
+      'Content-Type': mimeType,
+      'Content-Length': String(buffer.length),
+      'Content-Disposition': 'inline',
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'public, max-age=86400',
+    });
+
+    return new StreamableFile(buffer);
+  }
 
   /* -------------------------------------------------------- PRODUTOS */
 

@@ -5,6 +5,7 @@ import { Produto } from './entities/produto.entity';
 import { Categoria } from './entities/categoria.entity';
 import { ProdutoImagem } from './entities/produto-imagem.entity';
 import { Fornecedor } from '../fornecedor/entities/fornecedor.entity';
+import { ArquivoUpload } from '../pedido/entities/arquivo-upload.entity';
 import { CreateProdutoDto } from './dto/create-produto.dto';
 import { UpdateProdutoDto } from './dto/update-produto.dto';
 import { CreateCategoriaDto, UpdateCategoriaDto } from './dto/create-categoria.dto';
@@ -25,8 +26,55 @@ export class CatalogoService {
     @InjectRepository(Fornecedor)
     private readonly fornecedorRepo: Repository<Fornecedor>,
 
+    @InjectRepository(ArquivoUpload)
+    private readonly uploadRepo: Repository<ArquivoUpload>,
+
     private readonly promocaoService: PromocaoService,
   ) {}
+
+  /* -------------------------------------------------------- IMAGENS (UPLOAD) */
+
+  async salvarImagemProduto(dados: {
+    filename: string;
+    nomeOriginal: string | null;
+    mimetype: string;
+    tamanho: number;
+    dados: Buffer;
+    usuarioId?: string;
+  }) {
+    const registro = this.uploadRepo.create({
+      filename: dados.filename,
+      nomeOriginal: dados.nomeOriginal,
+      mimetype: dados.mimetype,
+      tamanho: dados.tamanho,
+      dados: dados.dados,
+      usuario: dados.usuarioId ? ({ idUsuario: dados.usuarioId } as any) : null,
+    });
+    return this.uploadRepo.save(registro);
+  }
+
+  async obterImagemProdutoPublica(
+    filename: string,
+  ): Promise<{ buffer: Buffer; mimeType: string }> {
+    if (!/^prod-[a-zA-Z0-9._-]+$/.test(filename)) {
+      throw new NotFoundException('Imagem de produto não encontrada');
+    }
+
+    const upload = await this.uploadRepo
+      .createQueryBuilder('upload')
+      .addSelect('upload.dados')
+      .where('upload.filename = :filename', { filename })
+      .getOne();
+
+    if (!upload || !upload.dados) {
+      throw new NotFoundException('Imagem de produto não encontrada');
+    }
+
+    return {
+      buffer: upload.dados,
+      mimeType: upload.mimetype || 'application/octet-stream',
+    };
+  }
 
   /* -------------------------------------------------------- PRODUTOS */
 

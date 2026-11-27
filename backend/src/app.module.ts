@@ -10,13 +10,15 @@ import { FornecedorModule } from './fornecedor/fornecedor.module';
 import { CatalogoModule } from './catalogo/catalogo.module';
 import { CarrinhoModule } from './carrinho/carrinho.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt.auth.guard';
 import { AuthModule } from './auth/auth.module';
 import { getDatabaseConfig } from './common/config/env.config';
 import { AuthCookieInterceptor } from './common/security/auth-cookie';
 import { RateLimitGuard } from './common/security/rate-limit.guard';
 import { SecurityModule } from './common/security/security.module';
+import { AuditInterceptor } from './auditoria/audit.interceptor';
+import { AuditExceptionFilter } from './auditoria/audit-exception.filter';
 
 @Module({
   imports: [
@@ -53,6 +55,14 @@ import { SecurityModule } from './common/security/security.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: AuthCookieInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: AuditExceptionFilter,
     },
   ],
 })

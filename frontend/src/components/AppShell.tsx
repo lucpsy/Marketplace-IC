@@ -21,6 +21,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: "Usuários", href: "/admin/usuarios" },
   { label: "Fornecedores", href: "/admin/fornecedores" },
   { label: "Promoções & Cupons", href: "/admin/promocoes" },
+  { label: "Auditoria", href: "/admin/auditoria" },
   { label: "Transparência", href: "/transparencia" },
 ];
 
